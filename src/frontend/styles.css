@@ -540,6 +540,12 @@ body {
   margin-bottom: 16px;
 }
 
+/* Allow source file path to span multiple columns if needed */
+.detail-item.source-item {
+  grid-column: 1 / -1;
+  min-width: 100%;
+}
+
 .detail-item {
   display: flex;
   flex-direction: column;
@@ -562,6 +568,25 @@ body {
   padding: 6px 8px;
   border-radius: 4px;
   border: 1px solid #e9ecef;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  max-width: 100%;
+}
+
+/* Special styling for source file paths */
+.detail-value.source-path {
+  font-size: 12px;
+  padding: 8px 12px;
+  min-height: 40px;
+  max-height: 120px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.4;
+  background: #f1f3f4;
+  border: 1px solid #d1d5da;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Courier New', monospace;
 }
 
 .detail-actions {

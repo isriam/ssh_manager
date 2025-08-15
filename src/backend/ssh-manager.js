@@ -521,19 +521,43 @@ class SSHManager {
     }
 
     // If we get here, try actual connection test with node-ssh
-    const SSH = require('node-ssh');
-    const ssh = new SSH();
+    const { NodeSSH } = require('node-ssh');
+    const ssh = new NodeSSH();
 
     try {
       const keyPath = config.keyFile.replace('~', require('os').homedir());
+      const fs = require('fs');
       
-      await ssh.connect({
+      // Check if key file exists and is readable
+      if (!fs.existsSync(keyPath)) {
+        return { 
+          success: false, 
+          message: `SSH key file not found: ${keyPath}`,
+          configValid: true,
+          hostReachable: false,
+          connectionError: `Key file not found: ${keyPath}`
+        };
+      }
+
+      // Prepare connection options
+      const connectOptions = {
         host: config.host,
         username: config.user,
         port: parseInt(config.port),
-        privateKey: keyPath,
-        readyTimeout: 5000
-      });
+        readyTimeout: 5000,
+        tryKeyboard: false
+      };
+
+      // Try to read and use the private key content
+      try {
+        const keyContent = fs.readFileSync(keyPath, 'utf8');
+        connectOptions.privateKey = keyContent;
+      } catch (keyReadError) {
+        // If key reading fails, try without key (password auth or default keys)
+        console.log(`Warning: Could not read key file ${keyPath}, trying without explicit key`);
+      }
+      
+      await ssh.connect(connectOptions);
 
       ssh.dispose();
       return { 
@@ -625,20 +649,24 @@ class SSHManager {
       let terminalArgs;
       
       if (os.platform() === 'darwin') {
-        // macOS - use Terminal.app
+        // macOS - use Terminal.app and bring it to front
         terminalApp = 'osascript';
         terminalArgs = [
           '-e', 
-          `tell application "Terminal" to do script "${sshCommand.simple}"`
+          `tell application "Terminal"
+            activate
+            set newTab to do script "${sshCommand.simple}"
+            activate
+          end tell`
         ];
       } else if (os.platform() === 'linux') {
-        // Linux - try common terminal emulators
+        // Linux - try common terminal emulators with focus
         terminalApp = 'x-terminal-emulator';
-        terminalArgs = ['-e', sshCommand.simple];
+        terminalArgs = ['-e', sshCommand.simple, '--geometry', '80x24+100+100'];
       } else if (os.platform() === 'win32') {
-        // Windows - use cmd
+        // Windows - use cmd with focus
         terminalApp = 'cmd';
-        terminalArgs = ['/c', 'start', 'cmd', '/k', sshCommand.simple];
+        terminalArgs = ['/c', 'start', '/max', 'cmd', '/k', sshCommand.simple];
       } else {
         throw new Error(`Unsupported platform: ${os.platform()}`);
       }

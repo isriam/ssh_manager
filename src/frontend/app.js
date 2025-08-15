@@ -291,9 +291,9 @@ function showConnectionDetails(connection) {
             <div class="detail-label">SSH Key</div>
             <div class="detail-value">${connection.keyFile || '~/.ssh/id_ed25519'}</div>
           </div>
-          <div class="detail-item">
+          <div class="detail-item source-item">
             <div class="detail-label">Source</div>
-            <div class="detail-value">${connection.configPath}</div>
+            <div class="detail-value source-path">${connection.configPath}</div>
           </div>
         </div>
       </div>
@@ -540,7 +540,6 @@ async function connectToServer(name, group) {
     
     if (result.success) {
       setStatus('SSH connection launched successfully');
-      showSuccess(result.data.message);
     } else {
       setStatus('Error launching SSH connection');
       showError('Failed to connect: ' + result.error);
