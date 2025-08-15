@@ -28,8 +28,92 @@ program
 program
   .command('create-shortcut')
   .description('Create desktop shortcut for SSH Manager')
-  .action(() => {
-    console.log('Desktop shortcut creation will be implemented in Phase 4');
+  .action(async () => {
+    try {
+      const os = require('os');
+      const path = require('path');
+      const fs = require('fs-extra');
+      
+      const platform = os.platform();
+      const homeDir = os.homedir();
+      
+      if (platform === 'darwin') {
+        // macOS - Create symlink in Applications folder
+        const appPath = '/Applications/SSH Manager.app';
+        const desktopPath = path.join(homeDir, 'Desktop', 'SSH Manager.app');
+        
+        // Check if app exists in Applications (from Electron build)
+        if (await fs.pathExists(appPath)) {
+          // Create desktop shortcut
+          if (await fs.pathExists(desktopPath)) {
+            await fs.remove(desktopPath);
+          }
+          
+          const { exec } = require('child_process');
+          const { promisify } = require('util');
+          const execAsync = promisify(exec);
+          
+          await execAsync(`ln -sf "${appPath}" "${desktopPath}"`);
+          console.log('✅ Desktop shortcut created successfully!');
+          console.log(`📱 SSH Manager is now available on your Desktop`);
+        } else {
+          // App not in Applications - provide manual installation instructions
+          console.log('📋 SSH Manager App Installation:');
+          console.log('1. Build the app: npm run build');
+          console.log('2. Copy "dist/mac/SSH Manager.app" to /Applications/');
+          console.log('3. Run this command again to create desktop shortcut');
+          console.log('');
+          console.log('Or manually drag the app from dist/mac/ to Applications folder');
+        }
+        
+      } else if (platform === 'linux') {
+        // Linux - Create .desktop file
+        const desktopFile = path.join(homeDir, 'Desktop', 'ssh-manager.desktop');
+        const applicationsDir = path.join(homeDir, '.local', 'share', 'applications');
+        const applicationsFile = path.join(applicationsDir, 'ssh-manager.desktop');
+        
+        await fs.ensureDir(path.dirname(applicationsFile));
+        
+        const desktopEntry = `[Desktop Entry]
+Version=1.0
+Name=SSH Manager
+Comment=Cross-platform SSH configuration manager
+Exec=ssh-manager
+Icon=ssh-manager
+Terminal=false
+Type=Application
+Categories=Network;Development;
+StartupWMClass=SSH Manager`;
+        
+        // Create desktop shortcut
+        await fs.writeFile(desktopFile, desktopEntry);
+        await fs.chmod(desktopFile, 0o755);
+        
+        // Create applications entry
+        await fs.writeFile(applicationsFile, desktopEntry);
+        
+        console.log('✅ Desktop shortcut created successfully!');
+        console.log('📱 SSH Manager is now available on your Desktop and Applications menu');
+        
+      } else if (platform === 'win32') {
+        // Windows - Create .lnk file (requires additional tools)
+        console.log('🪟 Windows shortcut creation:');
+        console.log('After installing SSH Manager via installer (npm run build):');
+        console.log('1. Right-click on Desktop → New → Shortcut');
+        console.log('2. Browse to SSH Manager executable');
+        console.log('3. Name it "SSH Manager"');
+        console.log('');
+        console.log('Or run the NSIS installer which creates shortcuts automatically');
+        
+      } else {
+        console.log(`❌ Unsupported platform: ${platform}`);
+        console.log('Supported platforms: macOS, Linux, Windows');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error creating desktop shortcut:', error.message);
+      process.exit(1);
+    }
   });
 
 program
