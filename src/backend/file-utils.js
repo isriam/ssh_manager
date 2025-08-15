@@ -14,13 +14,7 @@ class FileUtils {
     const directories = [
       this.sshManagerDir,
       path.join(this.sshManagerDir, 'config'),
-      path.join(this.sshManagerDir, 'config', 'work'),
-      path.join(this.sshManagerDir, 'config', 'personal'),
-      path.join(this.sshManagerDir, 'config', 'projects'),
       path.join(this.sshManagerDir, 'keys'),
-      path.join(this.sshManagerDir, 'keys', 'work'),
-      path.join(this.sshManagerDir, 'keys', 'personal'),
-      path.join(this.sshManagerDir, 'keys', 'projects'),
       path.join(this.sshManagerDir, 'templates'),
       path.join(this.sshManagerDir, 'backups'),
       path.join(this.sshManagerDir, 'backups', 'config-backups')
@@ -31,6 +25,11 @@ class FileUtils {
     }
 
     await fs.ensureDir(this.sshDir);
+
+    const defaultGroups = ['work', 'personal', 'projects'];
+    for (const group of defaultGroups) {
+      await this.createGroup(group);
+    }
   }
 
   async writeConfigFile(group, name, content) {
@@ -72,7 +71,7 @@ class FileUtils {
       return configs;
     }
 
-    const groups = group ? [group] : ['work', 'personal', 'projects'];
+    const groups = group ? [group] : await this.listGroups();
     
     for (const groupName of groups) {
       const groupDir = path.join(configDir, groupName);
@@ -169,6 +168,86 @@ class FileUtils {
 
   getSSHConfigPath() {
     return this.sshConfigPath;
+  }
+
+  async listGroups() {
+    const configDir = path.join(this.sshManagerDir, 'config');
+    
+    if (!await fs.pathExists(configDir)) {
+      return [];
+    }
+
+    const items = await fs.readdir(configDir);
+    const groups = [];
+
+    for (const item of items) {
+      const itemPath = path.join(configDir, item);
+      const stat = await fs.stat(itemPath);
+      if (stat.isDirectory()) {
+        groups.push(item);
+      }
+    }
+
+    return groups.sort();
+  }
+
+  async createGroup(groupName) {
+    const configDir = path.join(this.sshManagerDir, 'config', groupName);
+    const keysDir = path.join(this.sshManagerDir, 'keys', groupName);
+    
+    await fs.ensureDir(configDir);
+    await fs.ensureDir(keysDir);
+    
+    return groupName;
+  }
+
+  async renameGroup(oldName, newName) {
+    const oldConfigDir = path.join(this.sshManagerDir, 'config', oldName);
+    const newConfigDir = path.join(this.sshManagerDir, 'config', newName);
+    const oldKeysDir = path.join(this.sshManagerDir, 'keys', oldName);
+    const newKeysDir = path.join(this.sshManagerDir, 'keys', newName);
+
+    if (!await fs.pathExists(oldConfigDir)) {
+      throw new Error(`Group '${oldName}' does not exist`);
+    }
+
+    if (await fs.pathExists(newConfigDir)) {
+      throw new Error(`Group '${newName}' already exists`);
+    }
+
+    await fs.move(oldConfigDir, newConfigDir);
+    
+    if (await fs.pathExists(oldKeysDir)) {
+      await fs.move(oldKeysDir, newKeysDir);
+    } else {
+      await fs.ensureDir(newKeysDir);
+    }
+
+    return newName;
+  }
+
+  async deleteGroup(groupName) {
+    const configDir = path.join(this.sshManagerDir, 'config', groupName);
+    const keysDir = path.join(this.sshManagerDir, 'keys', groupName);
+
+    if (!await fs.pathExists(configDir)) {
+      throw new Error(`Group '${groupName}' does not exist`);
+    }
+
+    const files = await fs.readdir(configDir);
+    const configFiles = files.filter(file => file.endsWith('.conf'));
+    
+    if (configFiles.length > 0) {
+      throw new Error(`Cannot delete group '${groupName}' because it contains ${configFiles.length} connection(s)`);
+    }
+
+    await fs.remove(configDir);
+    
+    if (await fs.pathExists(keysDir)) {
+      await fs.remove(keysDir);
+    }
+
+    return groupName;
   }
 }
 

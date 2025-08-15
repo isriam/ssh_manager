@@ -19,7 +19,7 @@ class SSHManager {
   async addConnection(options) {
     const { name, host, user, port = '22', group = 'personal', template = 'basic-server', keyFile } = options;
 
-    this.validateConnectionOptions({ name, host, user, port, group });
+    await this.validateConnectionOptions({ name, host, user, port, group });
 
     const existingConfig = await this.fileUtils.readConfigFile(group, name);
     if (existingConfig) {
@@ -195,7 +195,7 @@ class SSHManager {
     }
   }
 
-  validateConnectionOptions({ name, host, user: _user, port, group }) {
+  async validateConnectionOptions({ name, host, user: _user, port, group }) {
     const errors = [];
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
@@ -210,8 +210,11 @@ class SSHManager {
       errors.push('Port must be a number between 1 and 65535');
     }
 
-    if (group && !['work', 'personal', 'projects'].includes(group)) {
-      errors.push('Group must be one of: work, personal, projects');
+    if (group) {
+      const existingGroups = await this.fileUtils.listGroups();
+      if (!existingGroups.includes(group)) {
+        errors.push(`Group '${group}' does not exist. Available groups: ${existingGroups.join(', ')}`);
+      }
     }
 
     if (host && !this.isValidHostname(host)) {
@@ -239,6 +242,100 @@ class SSHManager {
 
   async createFromTemplate(templateName, variables) {
     return await this.templates.createFromTemplate(templateName, variables);
+  }
+
+  async getGroups() {
+    return await this.fileUtils.listGroups();
+  }
+
+  async createGroup(groupName) {
+    if (!groupName || typeof groupName !== 'string' || groupName.trim() === '') {
+      throw new Error('Group name is required');
+    }
+
+    const sanitizedName = groupName.toLowerCase().replace(/[^a-z0-9-_]/g, '');
+    if (sanitizedName !== groupName.toLowerCase()) {
+      throw new Error('Group name can only contain letters, numbers, hyphens, and underscores');
+    }
+
+    if (sanitizedName.length < 2) {
+      throw new Error('Group name must be at least 2 characters long');
+    }
+
+    const existingGroups = await this.fileUtils.listGroups();
+    if (existingGroups.includes(sanitizedName)) {
+      throw new Error(`Group '${sanitizedName}' already exists`);
+    }
+
+    await this.fileUtils.createGroup(sanitizedName);
+    return { name: sanitizedName };
+  }
+
+  async renameGroup(oldName, newName) {
+    if (!oldName || !newName) {
+      throw new Error('Both old and new group names are required');
+    }
+
+    const sanitizedNewName = newName.toLowerCase().replace(/[^a-z0-9-_]/g, '');
+    if (sanitizedNewName !== newName.toLowerCase()) {
+      throw new Error('Group name can only contain letters, numbers, hyphens, and underscores');
+    }
+
+    if (sanitizedNewName.length < 2) {
+      throw new Error('Group name must be at least 2 characters long');
+    }
+
+    const existingGroups = await this.fileUtils.listGroups();
+    if (!existingGroups.includes(oldName)) {
+      throw new Error(`Group '${oldName}' does not exist`);
+    }
+
+    if (existingGroups.includes(sanitizedNewName)) {
+      throw new Error(`Group '${sanitizedNewName}' already exists`);
+    }
+
+    const connections = await this.listConnections(oldName);
+    
+    // Read all connection file contents BEFORE moving the directory
+    const connectionContents = [];
+    for (const connection of connections) {
+      const content = await this.fileUtils.readConfigFile(oldName, connection.name);
+      connectionContents.push({
+        name: connection.name,
+        content: content
+      });
+    }
+    
+    await this.fileUtils.renameGroup(oldName, sanitizedNewName);
+    
+    // Write the connection contents to the new location
+    for (const connectionData of connectionContents) {
+      if (connectionData.content) {
+        await this.fileUtils.writeConfigFile(sanitizedNewName, connectionData.name, connectionData.content);
+      }
+    }
+
+    await this.updateMainSSHConfig();
+    return { oldName, newName: sanitizedNewName };
+  }
+
+  async deleteGroup(groupName) {
+    if (!groupName) {
+      throw new Error('Group name is required');
+    }
+
+    const existingGroups = await this.fileUtils.listGroups();
+    if (!existingGroups.includes(groupName)) {
+      throw new Error(`Group '${groupName}' does not exist`);
+    }
+
+    const connections = await this.listConnections(groupName);
+    if (connections.length > 0) {
+      throw new Error(`Cannot delete group '${groupName}' because it contains ${connections.length} connection(s). Move or delete the connections first.`);
+    }
+
+    await this.fileUtils.deleteGroup(groupName);
+    return { name: groupName };
   }
 
   async testConnection(name, group = 'personal') {

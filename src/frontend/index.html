@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SSH Manager</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <header class="app-header">
+      <h1>SSH Manager</h1>
+      <div class="header-actions">
+        <button id="add-connection-btn" class="btn btn-primary">Add Connection</button>
+        <button id="refresh-btn" class="btn btn-secondary">Refresh</button>
+      </div>
+    </header>
+
+    <div class="app-content">
+      <aside class="sidebar">
+        <div class="sidebar-section">
+          <div class="section-header">
+            <h3>SSH Connections</h3>
+            <button class="btn-icon" id="add-group-btn" title="Add Group">➕</button>
+          </div>
+          <div class="tree-container" id="groups-tree">
+            <!-- Groups will be dynamically populated -->
+          </div>
+        </div>
+
+        <div class="sidebar-section">
+          <h3>Quick Actions</h3>
+          <ul class="action-list">
+            <li><button class="action-btn" id="test-all-btn">Test All Connections</button></li>
+            <li><button class="action-btn" id="backup-btn">Backup Configs</button></li>
+            <li><button class="action-btn" id="import-btn">Import Configs</button></li>
+          </ul>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <div class="content-header">
+          <h2 id="content-title">Connection Details</h2>
+          <div class="search-box">
+            <input type="text" id="search-input" placeholder="Search connections...">
+          </div>
+        </div>
+
+        <div class="connection-details-panel">
+          <div id="connection-details" class="details-container">
+            <div class="welcome-state">
+              <div class="welcome-icon">🔗</div>
+              <h3>Welcome to SSH Manager</h3>
+              <p>Select a connection from the sidebar to view details, or add a new connection to get started.</p>
+              <div class="welcome-actions">
+                <button class="btn btn-primary" onclick="showAddConnectionForm()">Add First Connection</button>
+                <button class="btn btn-secondary" onclick="importConfigs()">Import Existing</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Add Group Modal -->
+    <div id="add-group-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add New Group</h3>
+          <button class="modal-close" onclick="hideAddGroupForm()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="add-group-form">
+            <div class="form-group">
+              <label for="group-name">Group Name</label>
+              <input type="text" id="group-name" name="name" required placeholder="e.g., clients, servers, testing" pattern="[a-z0-9-_]{2,}" title="Only lowercase letters, numbers, hyphens, and underscores. At least 2 characters.">
+              <small>Use lowercase letters, numbers, hyphens, and underscores only</small>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="hideAddGroupForm()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Create Group</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Group Modal -->
+    <div id="edit-group-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Rename Group</h3>
+          <button class="modal-close" onclick="hideEditGroupForm()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-group-form">
+            <input type="hidden" id="edit-group-old-name">
+            <div class="form-group">
+              <label for="edit-group-name">New Group Name</label>
+              <input type="text" id="edit-group-name" name="name" required placeholder="e.g., clients, servers, testing" pattern="[a-z0-9-_]{2,}" title="Only lowercase letters, numbers, hyphens, and underscores. At least 2 characters.">
+              <small>Use lowercase letters, numbers, hyphens, and underscores only</small>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="hideEditGroupForm()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Rename Group</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Add Connection Modal -->
+    <div id="add-connection-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Add SSH Connection</h3>
+          <button class="modal-close" onclick="hideAddConnectionForm()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="add-connection-form">
+            <div class="form-group">
+              <label for="connection-name">Connection Name</label>
+              <input type="text" id="connection-name" name="name" required placeholder="e.g., Production Server">
+            </div>
+
+            <div class="form-group">
+              <label for="host">Host</label>
+              <input type="text" id="host" name="host" required placeholder="e.g., 192.168.1.100 or server.example.com">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="user">Username</label>
+                <input type="text" id="user" name="user" placeholder="e.g., root, ubuntu">
+              </div>
+              <div class="form-group">
+                <label for="port">Port</label>
+                <input type="number" id="port" name="port" value="22" min="1" max="65535">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="group">Group</label>
+              <select id="group" name="group">
+                <option value="personal">Personal</option>
+                <option value="work">Work</option>
+                <option value="projects">Projects</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="template">Template</label>
+              <select id="template" name="template">
+                <option value="basic-server">Basic Server</option>
+                <option value="aws-ec2">AWS EC2 Instance</option>
+                <option value="jump-host">Jump Host</option>
+                <option value="development">Development Server</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="key-file">SSH Key File</label>
+              <input type="text" id="key-file" name="keyFile" placeholder="~/.ssh/id_rsa">
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="hideAddConnectionForm()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Add Connection</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Bar -->
+    <footer class="status-bar">
+      <div class="status-left">
+        <span id="status-text">Ready</span>
+      </div>
+      <div class="status-right">
+        <span id="connection-count">0 connections</span>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
