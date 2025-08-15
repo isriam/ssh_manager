@@ -42,6 +42,7 @@ async function initializeSSHManager() {
 }
 
 app.whenReady().then(async () => {
+  app.setName('SSH Manager');
   await initializeSSHManager();
   createWindow();
 
@@ -173,6 +174,15 @@ ipcMain.handle('ssh:get-ssh-command', async (event, name, group) => {
 ipcMain.handle('ssh:verify-config-integrity', async () => {
   try {
     const result = await sshManager.verifySSHConfigIntegrity();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ssh:connect-to-server', async (event, name, group) => {
+  try {
+    const result = await sshManager.connectToServer(name, group);
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: error.message };

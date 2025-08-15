@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     deleteGroup: (groupName) => ipcRenderer.invoke('ssh:delete-group', groupName),
     validateAllConnections: () => ipcRenderer.invoke('ssh:validate-all-connections'),
     getSSHCommand: (name, group) => ipcRenderer.invoke('ssh:get-ssh-command', name, group),
-    verifyConfigIntegrity: () => ipcRenderer.invoke('ssh:verify-config-integrity')
+    verifyConfigIntegrity: () => ipcRenderer.invoke('ssh:verify-config-integrity'),
+    connectToServer: (name, group) => ipcRenderer.invoke('ssh:connect-to-server', name, group)
   }
 });

@@ -31,7 +31,7 @@ class SSHManager {
       host: host,
       user: user || 'root',
       port: port,
-      key_file: keyFile || '~/.ssh/id_rsa',
+      key_file: keyFile || '~/.ssh/id_ed25519',
       jump_host: jumpHost || 'bastion.example.com',
       local_port: localPort || '8080',
       remote_host: remoteHost || 'localhost',
@@ -69,6 +69,7 @@ class SSHManager {
     const configFiles = await this.fileUtils.listConfigFiles(groupFilter);
     const connections = [];
 
+    // Get managed connections from our system
     for (const configFile of configFiles) {
       try {
         const content = await this.fileUtils.readConfigFile(configFile.group, configFile.name);
@@ -78,14 +79,93 @@ class SSHManager {
           name: configFile.name,
           group: configFile.group,
           ...parsedConfig,
-          configPath: configFile.path
+          configPath: configFile.path,
+          managed: true,
+          editable: true
         });
       } catch (error) {
         console.warn(`Warning: Could not parse config for ${configFile.group}/${configFile.name}:`, error.message);
       }
     }
 
+    // Also get existing SSH configurations from main config file
+    if (!groupFilter) {
+      const existingConnections = await this.getExistingSSHConnections();
+      connections.push(...existingConnections);
+    }
+
     return connections;
+  }
+
+  async getExistingSSHConnections() {
+    try {
+      const mainConfig = await this.fileUtils.readMainConfig();
+      const SSHConfig = require('ssh-config');
+      const config = SSHConfig.parse(mainConfig);
+      
+      const existingConnections = [];
+      
+      for (const section of config) {
+        // SSH config parser uses numeric types: 1 = Host, 2 = Match, etc.
+        if (section.type === 1 && section.param === 'Host' && section.value && section.value !== '*') {
+          const hostName = section.value;
+          
+          // Skip Include directives and our managed configs
+          if (hostName.toLowerCase().startsWith('include')) {
+            continue;
+          }
+          
+          // Check if this might be a managed config by looking for our template signatures
+          // Since we're parsing the main config, we need a different approach
+          const isManagedHost = await this.isManagedConnection(hostName);
+          
+          if (!isManagedHost) {
+            try {
+              const getConfigValue = (param) => {
+                if (!section.config) return null;
+                const item = section.config.find(c => c.param === param);
+                return item ? item.value : null;
+              };
+
+              existingConnections.push({
+                name: hostName,
+                group: 'existing',
+                host: getConfigValue('HostName') || hostName,
+                user: getConfigValue('User') || 'unknown',
+                port: getConfigValue('Port') || '22',
+                keyFile: getConfigValue('IdentityFile') || '~/.ssh/id_ed25519',
+                managed: false,
+                editable: false,
+                configPath: '~/.ssh/config'
+              });
+            } catch (error) {
+              console.warn(`Warning: Could not parse existing connection ${hostName}:`, error.message);
+            }
+          }
+        }
+      }
+      
+      return existingConnections;
+    } catch (error) {
+      console.warn('Warning: Could not parse existing SSH configurations:', error.message);
+      return [];
+    }
+  }
+
+  async isManagedConnection(hostName) {
+    // Check if this host is managed by SSH Manager by looking in our config directories
+    try {
+      const groups = await this.fileUtils.listGroups();
+      for (const group of groups) {
+        const managedFile = await this.fileUtils.readConfigFile(group, hostName);
+        if (managedFile) {
+          return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
   }
 
   async updateConnection(name, group, updates) {
@@ -153,6 +233,11 @@ class SSHManager {
       const validationResults = [];
       
       for (const connection of connections) {
+        // Skip validation for existing (non-managed) connections
+        if (!connection.managed) {
+          continue;
+        }
+        
         const configPath = `${this.fileUtils.getSSHManagerPath()}/config/${connection.group}/${connection.name}.conf`;
         const content = await this.fileUtils.readConfigFile(connection.group, connection.name);
         const validation = this.validateSSHConfig(content);
@@ -194,7 +279,7 @@ class SSHManager {
         host: getConfigValue('HostName') || 'unknown',
         user: getConfigValue('User') || 'unknown',
         port: getConfigValue('Port') || '22',
-        keyFile: getConfigValue('IdentityFile') || '~/.ssh/id_rsa'
+        keyFile: getConfigValue('IdentityFile') || '~/.ssh/id_ed25519'
       };
     } catch (error) {
       throw new Error(`Invalid SSH configuration: ${error.message}`);
@@ -513,6 +598,66 @@ class SSHManager {
       explicit: debugCommand,
       config: config
     };
+  }
+
+  async connectToServer(name, group = 'personal') {
+    const content = await this.fileUtils.readConfigFile(group, name);
+    
+    if (!content) {
+      throw new Error(`Connection '${name}' not found in group '${group}'`);
+    }
+
+    // First validate the connection
+    const testResult = await this.testConnection(name, group);
+    if (!testResult.configValid) {
+      throw new Error(`Cannot connect - configuration is invalid: ${testResult.message}`);
+    }
+
+    // Get the SSH command
+    const sshCommand = await this.getConnectionSSHCommand(name, group);
+    
+    // Launch SSH connection in terminal
+    const { spawn } = require('child_process');
+    const os = require('os');
+    
+    try {
+      let terminalApp;
+      let terminalArgs;
+      
+      if (os.platform() === 'darwin') {
+        // macOS - use Terminal.app
+        terminalApp = 'osascript';
+        terminalArgs = [
+          '-e', 
+          `tell application "Terminal" to do script "${sshCommand.simple}"`
+        ];
+      } else if (os.platform() === 'linux') {
+        // Linux - try common terminal emulators
+        terminalApp = 'x-terminal-emulator';
+        terminalArgs = ['-e', sshCommand.simple];
+      } else if (os.platform() === 'win32') {
+        // Windows - use cmd
+        terminalApp = 'cmd';
+        terminalArgs = ['/c', 'start', 'cmd', '/k', sshCommand.simple];
+      } else {
+        throw new Error(`Unsupported platform: ${os.platform()}`);
+      }
+
+      const child = spawn(terminalApp, terminalArgs, {
+        detached: true,
+        stdio: 'ignore'
+      });
+      
+      child.unref();
+      
+      return {
+        success: true,
+        message: `SSH connection to "${name}" launched in terminal`,
+        command: sshCommand.simple
+      };
+    } catch (error) {
+      throw new Error(`Failed to launch terminal: ${error.message}`);
+    }
   }
 }
 

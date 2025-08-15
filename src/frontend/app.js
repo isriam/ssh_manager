@@ -170,16 +170,17 @@ function createGroupNode(groupName) {
   
   const groupIcon = getGroupIcon(groupName);
   const connectionCount = allConnections.filter(c => c.group === groupName).length;
-  const canDelete = connectionCount === 0;
+  const canDelete = connectionCount === 0 && groupName !== 'existing';
+  const isExistingGroup = groupName === 'existing';
   
   groupNode.innerHTML = `
-    <div class="tree-node-header drop-zone">
+    <div class="tree-node-header drop-zone ${isExistingGroup ? 'readonly-group' : ''}">
       <span class="tree-toggle">▼</span>
       <span class="group-icon">${groupIcon}</span>
-      <span class="group-name">${groupName}</span>
+      <span class="group-name">${groupName}${isExistingGroup ? ' (Read-Only)' : ''}</span>
       <div class="group-actions">
-        <button class="group-action-btn edit" title="Rename Group" onclick="showEditGroupForm('${groupName}')">✏️</button>
-        <button class="group-action-btn delete" title="Delete Group" onclick="deleteGroup('${groupName}')" ${!canDelete ? 'disabled' : ''}>🗑️</button>
+        ${!isExistingGroup ? `<button class="group-action-btn edit" title="Rename Group" onclick="showEditGroupForm('${groupName}')">✏️</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn delete" title="Delete Group" onclick="deleteGroup('${groupName}')" ${!canDelete ? 'disabled' : ''}>🗑️</button>` : ''}
       </div>
     </div>
     <div class="tree-children" data-group="${groupName}"></div>
@@ -203,21 +204,26 @@ function getGroupIcon(groupName) {
     'servers': '🖥️',
     'testing': '🧪',
     'production': '🏭',
-    'development': '🔧'
+    'development': '🔧',
+    'existing': '📋'
   };
   return icons[groupName] || '📁';
 }
 
 function createConnectionTreeItem(connection) {
   const item = document.createElement('div');
-  item.className = 'connection-tree-item';
-  item.draggable = true;
+  const isExisting = !connection.managed;
+  item.className = `connection-tree-item ${isExisting ? 'readonly-connection' : ''}`;
+  item.draggable = !isExisting;
   item.dataset.name = connection.name;
   item.dataset.group = connection.group;
   
+  const icon = isExisting ? '🔒' : '🖥️';
+  const nameDisplay = isExisting ? `${connection.name} (Read-Only)` : connection.name;
+  
   item.innerHTML = `
-    <span class="connection-icon">🖥️</span>
-    <span class="connection-name">${connection.name}</span>
+    <span class="connection-icon">${icon}</span>
+    <span class="connection-name">${nameDisplay}</span>
     <span class="connection-details-mini">${connection.user}@${connection.host}</span>
   `;
   
@@ -227,11 +233,12 @@ function createConnectionTreeItem(connection) {
     selectConnection(connection.name, connection.group);
   });
   
-  item.addEventListener('dragstart', handleDragStart);
-  item.addEventListener('dragend', handleDragEnd);
-  
-  // Ensure draggable is properly set
-  item.setAttribute('draggable', 'true');
+  // Only add drag functionality to managed connections
+  if (!isExisting) {
+    item.addEventListener('dragstart', handleDragStart);
+    item.addEventListener('dragend', handleDragEnd);
+    item.setAttribute('draggable', 'true');
+  }
   
   return item;
 }
@@ -251,6 +258,8 @@ function selectConnection(name, group) {
 
 function showConnectionDetails(connection) {
   const container = document.getElementById('connection-details');
+  const isExisting = !connection.managed;
+  const statusBadge = isExisting ? '<span class="readonly-badge">Read-Only</span>' : '';
   
   container.innerHTML = `
     <div class="connection-detail-view active">
@@ -258,11 +267,13 @@ function showConnectionDetails(connection) {
         <div>
           <h3 class="detail-title">${connection.name}</h3>
           <span class="detail-group-badge">${connection.group}</span>
+          ${statusBadge}
         </div>
       </div>
       
       <div class="detail-section">
         <h4>Connection Details</h4>
+        ${isExisting ? '<p class="readonly-notice">⚠️ This is an existing SSH configuration from your ~/.ssh/config file. It can be used but not edited through SSH Manager.</p>' : ''}
         <div class="detail-grid">
           <div class="detail-item">
             <div class="detail-label">Hostname</div>
@@ -278,7 +289,11 @@ function showConnectionDetails(connection) {
           </div>
           <div class="detail-item">
             <div class="detail-label">SSH Key</div>
-            <div class="detail-value">${connection.keyFile || '~/.ssh/id_rsa'}</div>
+            <div class="detail-value">${connection.keyFile || '~/.ssh/id_ed25519'}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Source</div>
+            <div class="detail-value">${connection.configPath}</div>
           </div>
         </div>
       </div>
@@ -292,12 +307,8 @@ function showConnectionDetails(connection) {
           <button class="btn btn-secondary" onclick="testConnection('${connection.name}', '${connection.group}')">
             🔍 Test Connection
           </button>
-          <button class="btn btn-secondary" onclick="editConnection('${connection.name}', '${connection.group}')">
-            ✏️ Edit
-          </button>
-          <button class="btn btn-secondary" onclick="deleteConnection('${connection.name}', '${connection.group}')">
-            🗑️ Delete
-          </button>
+          ${!isExisting ? `<button class="btn btn-secondary" onclick="editConnection('${connection.name}', '${connection.group}')">✏️ Edit</button>` : ''}
+          ${!isExisting ? `<button class="btn btn-secondary" onclick="deleteConnection('${connection.name}', '${connection.group}')">🗑️ Delete</button>` : ''}
         </div>
       </div>
       
@@ -351,7 +362,8 @@ function handleDragOver(e) {
   e.dataTransfer.dropEffect = 'move';
   
   const targetGroup = e.currentTarget.closest('.tree-node').dataset.group;
-  if (draggedConnection && targetGroup !== draggedConnection.group) {
+  // Don't allow dropping to existing group or same group
+  if (draggedConnection && targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
     e.currentTarget.classList.add('drag-over');
   }
 }
@@ -368,7 +380,8 @@ async function handleDrop(e) {
   
   const targetGroup = e.currentTarget.closest('.tree-node').dataset.group;
   
-  if (targetGroup !== draggedConnection.group) {
+  // Don't allow dropping to existing group or same group
+  if (targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
     await moveConnectionToGroup(draggedConnection.name, draggedConnection.group, targetGroup);
   }
 }
@@ -520,9 +533,22 @@ async function testConnection(name, group) {
   }
 }
 
-function connectToServer(name, _group) {
-  setStatus(`Launching SSH connection to ${name}...`);
-  showSuccess(`SSH connection to "${name}" would launch in terminal (feature coming in Phase 3)`);
+async function connectToServer(name, group) {
+  try {
+    setStatus(`Launching SSH connection to ${name}...`);
+    const result = await window.electronAPI.ssh.connectToServer(name, group);
+    
+    if (result.success) {
+      setStatus('SSH connection launched successfully');
+      showSuccess(result.data.message);
+    } else {
+      setStatus('Error launching SSH connection');
+      showError('Failed to connect: ' + result.error);
+    }
+  } catch (error) {
+    setStatus('Error: ' + error.message);
+    showError('Failed to connect: ' + error.message);
+  }
 }
 
 async function editConnection(name, group) {
@@ -540,7 +566,7 @@ async function editConnection(name, group) {
     document.getElementById('edit-host').value = connection.host;
     document.getElementById('edit-user').value = connection.user;
     document.getElementById('edit-port').value = connection.port;
-    document.getElementById('edit-key-file').value = connection.keyFile || '~/.ssh/id_rsa';
+    document.getElementById('edit-key-file').value = connection.keyFile || '~/.ssh/id_ed25519';
 
     // Update group dropdown and select current group
     updateEditGroupDropdown();

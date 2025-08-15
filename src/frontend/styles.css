@@ -250,6 +250,52 @@ body {
   z-index: 1000;
 }
 
+/* Read-Only Styles */
+.readonly-group {
+  background-color: #f8f9fa;
+  opacity: 0.8;
+}
+
+.readonly-connection {
+  background-color: #f8f9fa;
+  opacity: 0.8;
+  cursor: default;
+}
+
+.readonly-connection:hover {
+  background-color: #f8f9fa;
+}
+
+.readonly-badge {
+  background-color: #6c757d;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+.readonly-notice {
+  background-color: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 16px;
+  color: #856404;
+  font-size: 14px;
+}
+
+.connection-tree-item.readonly-connection .connection-name {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.tree-node-header.readonly-group .group-name {
+  color: #6c757d;
+  font-style: italic;
+}
+
 .connection-icon {
   margin-right: 6px;
   font-size: 12px;
