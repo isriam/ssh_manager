@@ -151,3 +151,30 @@ ipcMain.handle('ssh:delete-group', async (event, groupName) => {
     return { success: false, error: error.message };
   }
 });
+
+ipcMain.handle('ssh:validate-all-connections', async () => {
+  try {
+    const results = await sshManager.validateAllConnections();
+    return { success: true, data: results };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ssh:get-ssh-command', async (event, name, group) => {
+  try {
+    const result = await sshManager.getConnectionSSHCommand(name, group);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ssh:verify-config-integrity', async () => {
+  try {
+    const result = await sshManager.verifySSHConfigIntegrity();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

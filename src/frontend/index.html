@@ -172,6 +172,78 @@
       </div>
     </div>
 
+    <!-- Edit Connection Modal -->
+    <div id="edit-connection-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit SSH Connection</h3>
+          <button class="modal-close" onclick="hideEditConnectionForm()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="edit-connection-form">
+            <input type="hidden" id="edit-connection-original-name" name="originalName">
+            <input type="hidden" id="edit-connection-original-group" name="originalGroup">
+
+            <div class="form-group">
+              <label for="edit-connection-name">Connection Name</label>
+              <input type="text" id="edit-connection-name" name="name" required placeholder="e.g., Production Server">
+            </div>
+
+            <div class="form-group">
+              <label for="edit-host">Host</label>
+              <input type="text" id="edit-host" name="host" required placeholder="e.g., 192.168.1.100 or server.example.com">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="edit-user">Username</label>
+                <input type="text" id="edit-user" name="user" placeholder="e.g., root, ubuntu">
+              </div>
+              <div class="form-group">
+                <label for="edit-port">Port</label>
+                <input type="number" id="edit-port" name="port" value="22" min="1" max="65535">
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-group">Group</label>
+              <select id="edit-group" name="group">
+                <option value="personal">Personal</option>
+                <option value="work">Work</option>
+                <option value="projects">Projects</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-template">Template</label>
+              <select id="edit-template" name="template">
+                <option value="basic-server">Basic Server</option>
+                <option value="aws-ec2">AWS EC2 Instance</option>
+                <option value="jump-host">Jump Host</option>
+                <option value="development">Development Server</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-key-file">SSH Key File</label>
+              <input type="text" id="edit-key-file" name="keyFile" placeholder="~/.ssh/id_rsa">
+            </div>
+
+            <!-- Advanced options for jump-host template -->
+            <div id="edit-jump-host-options" class="form-group" style="display: none;">
+              <label for="edit-jump-host">Jump Host</label>
+              <input type="text" id="edit-jump-host" name="jumpHost" placeholder="bastion.example.com">
+            </div>
+
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" onclick="hideEditConnectionForm()">Cancel</button>
+              <button type="submit" class="btn btn-primary">Update Connection</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
     <!-- Status Bar -->
     <footer class="status-bar">
       <div class="status-left">

@@ -11,6 +11,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getGroups: () => ipcRenderer.invoke('ssh:get-groups'),
     createGroup: (groupName) => ipcRenderer.invoke('ssh:create-group', groupName),
     renameGroup: (oldName, newName) => ipcRenderer.invoke('ssh:rename-group', oldName, newName),
-    deleteGroup: (groupName) => ipcRenderer.invoke('ssh:delete-group', groupName)
+    deleteGroup: (groupName) => ipcRenderer.invoke('ssh:delete-group', groupName),
+    validateAllConnections: () => ipcRenderer.invoke('ssh:validate-all-connections'),
+    getSSHCommand: (name, group) => ipcRenderer.invoke('ssh:get-ssh-command', name, group),
+    verifyConfigIntegrity: () => ipcRenderer.invoke('ssh:verify-config-integrity')
   }
 });

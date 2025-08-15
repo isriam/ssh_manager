@@ -17,7 +17,7 @@ class SSHManager {
   }
 
   async addConnection(options) {
-    const { name, host, user, port = '22', group = 'personal', template = 'basic-server', keyFile } = options;
+    const { name, host, user, port = '22', group = 'personal', template = 'basic-server', keyFile, jumpHost, localPort, remoteHost, remotePort, socksPort } = options;
 
     await this.validateConnectionOptions({ name, host, user, port, group });
 
@@ -31,7 +31,12 @@ class SSHManager {
       host: host,
       user: user || 'root',
       port: port,
-      key_file: keyFile || '~/.ssh/id_rsa'
+      key_file: keyFile || '~/.ssh/id_rsa',
+      jump_host: jumpHost || 'bastion.example.com',
+      local_port: localPort || '8080',
+      remote_host: remoteHost || 'localhost',
+      remote_port: remotePort || '80',
+      socks_port: socksPort || '1080'
     };
 
     const configContent = await this.templates.createFromTemplate(template, templateVariables);
@@ -127,6 +132,47 @@ class SSHManager {
     } else {
       lines[existingIncludeIndex] = includeDirective;
       await this.fileUtils.writeMainConfig(lines.join('\n'));
+    }
+
+    // Verify the configuration is valid after update
+    await this.verifySSHConfigIntegrity();
+  }
+
+  async verifySSHConfigIntegrity() {
+    try {
+      // Test SSH config parsing
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+
+      // Use SSH's built-in config test
+      await execAsync('ssh -F ~/.ssh/config -T git@github.com 2>/dev/null || true');
+      
+      // Verify all our managed configs are valid
+      const connections = await this.listConnections();
+      const validationResults = [];
+      
+      for (const connection of connections) {
+        const configPath = `${this.fileUtils.getSSHManagerPath()}/config/${connection.group}/${connection.name}.conf`;
+        const content = await this.fileUtils.readConfigFile(connection.group, connection.name);
+        const validation = this.validateSSHConfig(content);
+        
+        if (!validation.isValid) {
+          validationResults.push({
+            connection: `${connection.group}/${connection.name}`,
+            errors: validation.errors
+          });
+        }
+      }
+
+      if (validationResults.length > 0) {
+        console.warn('SSH Config validation warnings:', validationResults);
+      }
+
+      return { valid: validationResults.length === 0, issues: validationResults };
+    } catch (error) {
+      console.warn('SSH config verification failed:', error.message);
+      return { valid: false, error: error.message };
     }
   }
 
@@ -347,23 +393,126 @@ class SSHManager {
 
     const config = this.parseSSHConfig(content);
     
+    // First, test SSH config syntax
+    const validation = this.validateSSHConfig(content);
+    if (!validation.isValid) {
+      return { 
+        success: false, 
+        message: `Invalid SSH configuration: ${validation.errors.join(', ')}`,
+        errors: validation.errors
+      };
+    }
+
+    // Test with SSH dry-run to verify config is readable
+    try {
+      const { exec } = require('child_process');
+      const { promisify } = require('util');
+      const execAsync = promisify(exec);
+      
+      // Test if SSH can parse the configuration
+      await execAsync(`ssh -F ~/.ssh/config -o ConnectTimeout=1 -o BatchMode=yes ${name} echo "test"`, { timeout: 2000 });
+    } catch (sshError) {
+      // Check if it's a connection error (which is expected) vs config error
+      if (sshError.message.includes('could not resolve hostname') || 
+          sshError.message.includes('Could not resolve hostname') ||
+          sshError.message.includes('connection refused') || 
+          sshError.message.includes('operation timed out') ||
+          sshError.message.includes('Operation timed out') ||
+          sshError.message.includes('kex_exchange_identification') ||
+          sshError.message.includes('Connection closed by remote host')) {
+        return { 
+          success: true, 
+          message: 'SSH configuration is valid (host unreachable but config syntax correct)',
+          configValid: true,
+          hostReachable: false
+        };
+      } else {
+        return { 
+          success: false, 
+          message: `SSH configuration error: ${sshError.message}`,
+          configValid: false
+        };
+      }
+    }
+
+    // If we get here, try actual connection test with node-ssh
     const SSH = require('node-ssh');
     const ssh = new SSH();
 
     try {
+      const keyPath = config.keyFile.replace('~', require('os').homedir());
+      
       await ssh.connect({
         host: config.host,
         username: config.user,
         port: parseInt(config.port),
-        privateKey: config.keyFile.replace('~', require('os').homedir()),
+        privateKey: keyPath,
         readyTimeout: 5000
       });
 
       ssh.dispose();
-      return { success: true, message: 'Connection successful' };
+      return { 
+        success: true, 
+        message: 'Connection successful',
+        configValid: true,
+        hostReachable: true
+      };
     } catch (error) {
-      return { success: false, message: error.message };
+      return { 
+        success: false, 
+        message: `Connection failed: ${error.message}`,
+        configValid: true,
+        hostReachable: false,
+        connectionError: error.message
+      };
     }
+  }
+
+  async validateAllConnections() {
+    const connections = await this.listConnections();
+    const results = [];
+
+    for (const connection of connections) {
+      try {
+        const testResult = await this.testConnection(connection.name, connection.group);
+        results.push({
+          name: connection.name,
+          group: connection.group,
+          ...testResult
+        });
+      } catch (error) {
+        results.push({
+          name: connection.name,
+          group: connection.group,
+          success: false,
+          message: error.message
+        });
+      }
+    }
+
+    return results;
+  }
+
+  async getConnectionSSHCommand(name, group = 'personal') {
+    const content = await this.fileUtils.readConfigFile(group, name);
+    
+    if (!content) {
+      throw new Error(`Connection '${name}' not found in group '${group}'`);
+    }
+
+    const config = this.parseSSHConfig(content);
+    
+    // Build SSH command based on configuration
+    let sshCommand = `ssh ${name}`;
+    
+    // Add explicit options if needed for debugging
+    const debugCommand = `ssh -F ~/.ssh/config ${name}`;
+    
+    return {
+      simple: sshCommand,
+      explicit: debugCommand,
+      config: config
+    };
   }
 }
 

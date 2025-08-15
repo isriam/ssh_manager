@@ -40,11 +40,18 @@ program
   .option('-u, --user <username>', 'Username')
   .option('-p, --port <port>', 'Port number', '22')
   .option('-g, --group <group>', 'Group folder (work/personal/projects)', 'personal')
+  .option('-t, --template <template>', 'Configuration template (basic-server, jump-host, port-forward, tunnel, aws-ec2, development)', 'basic-server')
+  .option('-k, --key-file <keyFile>', 'SSH private key file path', '~/.ssh/id_rsa')
+  .option('-j, --jump-host <jumpHost>', 'Jump/bastion host for ProxyJump')
+  .option('--local-port <localPort>', 'Local port for port forwarding')
+  .option('--remote-host <remoteHost>', 'Remote host for port forwarding', 'localhost')
+  .option('--remote-port <remotePort>', 'Remote port for port forwarding')
+  .option('--socks-port <socksPort>', 'SOCKS proxy port for tunneling')
   .action(async (options) => {
     try {
       const manager = new SSHManager();
       await manager.addConnection(options);
-      console.log(`SSH connection '${options.name}' added successfully!`);
+      console.log(`SSH connection '${options.name}' added successfully using template '${options.template}'!`);
     } catch (error) {
       console.error('Error adding SSH connection:', error.message);
       process.exit(1);

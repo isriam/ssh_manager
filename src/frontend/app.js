@@ -16,6 +16,7 @@ function initializeEventListeners() {
   document.getElementById('refresh-btn').addEventListener('click', refreshAll);
   document.getElementById('search-input').addEventListener('input', filterConnections);
   document.getElementById('add-connection-form').addEventListener('submit', handleAddConnection);
+  document.getElementById('edit-connection-form').addEventListener('submit', handleEditConnection);
   
   document.getElementById('add-group-btn').addEventListener('click', showAddGroupForm);
   document.getElementById('add-group-form').addEventListener('submit', handleAddGroup);
@@ -24,6 +25,9 @@ function initializeEventListeners() {
   document.getElementById('test-all-btn').addEventListener('click', testAllConnections);
   document.getElementById('backup-btn').addEventListener('click', backupConfigs);
   document.getElementById('import-btn').addEventListener('click', importConfigs);
+
+  // Add template change listener for edit form
+  document.getElementById('edit-template').addEventListener('change', handleEditTemplateChange);
 }
 
 async function refreshAll() {
@@ -521,13 +525,191 @@ function connectToServer(name, _group) {
   showSuccess(`SSH connection to "${name}" would launch in terminal (feature coming in Phase 3)`);
 }
 
-function editConnection(name, _group) {
-  showSuccess(`Edit functionality for "${name}" coming in Phase 3`);
+async function editConnection(name, group) {
+  try {
+    const connection = allConnections.find(c => c.name === name && c.group === group);
+    if (!connection) {
+      showError(`Connection '${name}' not found`);
+      return;
+    }
+
+    // Populate the edit form with current values
+    document.getElementById('edit-connection-original-name').value = name;
+    document.getElementById('edit-connection-original-group').value = group;
+    document.getElementById('edit-connection-name').value = name;
+    document.getElementById('edit-host').value = connection.host;
+    document.getElementById('edit-user').value = connection.user;
+    document.getElementById('edit-port').value = connection.port;
+    document.getElementById('edit-key-file').value = connection.keyFile || '~/.ssh/id_rsa';
+
+    // Update group dropdown and select current group
+    updateEditGroupDropdown();
+    document.getElementById('edit-group').value = group;
+
+    // Detect template based on configuration (simple heuristic)
+    const template = detectConnectionTemplate(connection);
+    document.getElementById('edit-template').value = template;
+    
+    // Show/hide advanced options based on template
+    handleEditTemplateChange();
+
+    // Show the edit modal
+    document.getElementById('edit-connection-modal').classList.add('active');
+    document.getElementById('edit-connection-name').focus();
+  } catch (error) {
+    showError('Failed to load connection for editing: ' + error.message);
+  }
+}
+
+function detectConnectionTemplate(connection) {
+  // Read SSH config content to detect template type
+  // This is a simple heuristic based on common patterns
+  if (connection.configPath) {
+    // Check for ProxyJump directive
+    if (connection.configPath.includes('ProxyJump') || connection.configPath.includes('jump')) {
+      return 'jump-host';
+    }
+    // Check for AWS patterns
+    if (connection.user === 'ec2-user' || connection.host.includes('amazonaws')) {
+      return 'aws-ec2';
+    }
+    // Check for development patterns
+    if (connection.host.includes('dev') || connection.host.includes('localhost')) {
+      return 'development';
+    }
+  }
+  
+  // Default to basic-server
+  return 'basic-server';
+}
+
+function updateEditGroupDropdown() {
+  const groupSelect = document.getElementById('edit-group');
+  groupSelect.innerHTML = '';
+  
+  allGroups.forEach(groupName => {
+    const option = document.createElement('option');
+    option.value = groupName;
+    option.textContent = groupName.charAt(0).toUpperCase() + groupName.slice(1);
+    groupSelect.appendChild(option);
+  });
+}
+
+function handleEditTemplateChange() {
+  const template = document.getElementById('edit-template').value;
+  const jumpHostOptions = document.getElementById('edit-jump-host-options');
+  
+  if (template === 'jump-host') {
+    jumpHostOptions.style.display = 'block';
+  } else {
+    jumpHostOptions.style.display = 'none';
+  }
+}
+
+function showEditConnectionForm() {
+  document.getElementById('edit-connection-modal').classList.add('active');
+}
+
+function hideEditConnectionForm() {
+  document.getElementById('edit-connection-modal').classList.remove('active');
+  document.getElementById('edit-connection-form').reset();
+}
+
+async function handleEditConnection(e) {
+  e.preventDefault();
+  
+  const formData = new FormData(e.target);
+  const originalName = formData.get('originalName');
+  const originalGroup = formData.get('originalGroup');
+  
+  const updates = {
+    name: formData.get('name'),
+    host: formData.get('host'),
+    user: formData.get('user'),
+    port: formData.get('port'),
+    group: formData.get('group'),
+    template: formData.get('template'),
+    keyFile: formData.get('keyFile'),
+    jumpHost: formData.get('jumpHost')
+  };
+  
+  try {
+    setStatus('Updating connection...');
+    
+    // If name or group changed, we need to remove old and create new
+    if (updates.name !== originalName || updates.group !== originalGroup) {
+      // Remove old connection
+      await window.electronAPI.ssh.removeConnection(originalName, originalGroup);
+      
+      // Create new connection with updated details
+      const result = await window.electronAPI.ssh.addConnection(updates);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    } else {
+      // Just update existing connection
+      const result = await window.electronAPI.ssh.updateConnection(originalName, originalGroup, updates);
+      
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+    }
+    
+    hideEditConnectionForm();
+    await loadConnections();
+    setStatus('Connection updated successfully');
+    showSuccess(`Connection "${updates.name}" updated successfully!`);
+    
+    // Re-select the connection with its new name/group
+    setTimeout(() => {
+      selectConnection(updates.name, updates.group);
+    }, 100);
+    
+  } catch (error) {
+    setStatus('Error updating connection');
+    showError('Failed to update connection: ' + error.message);
+  }
 }
 
 async function testAllConnections() {
-  setStatus('Testing all connections...');
-  showSuccess('Bulk connection testing coming in Phase 3');
+  try {
+    setStatus('Testing all connections...');
+    const result = await window.electronAPI.ssh.validateAllConnections();
+    
+    if (result.success) {
+      const validationResults = result.data;
+      let successCount = 0;
+      let failCount = 0;
+      let configValidCount = 0;
+      let unreachableCount = 0;
+      
+      for (const test of validationResults) {
+        if (test.success && test.hostReachable) {
+          successCount++;
+        } else if (test.configValid && !test.hostReachable) {
+          configValidCount++;
+        } else {
+          failCount++;
+        }
+      }
+      
+      const total = validationResults.length;
+      const message = `Connection Test Results: ${successCount} successful, ${configValidCount} config valid (host unreachable), ${failCount} failed out of ${total} total`;
+      
+      setStatus(message);
+      showSuccess(message);
+      
+      // Show detailed results in console for debugging
+      console.log('Detailed validation results:', validationResults);
+    } else {
+      setStatus('Error testing connections');
+      showError('Failed to test connections: ' + result.error);
+    }
+  } catch (error) {
+    setStatus('Error testing connections');
+    showError('Failed to test connections: ' + error.message);
+  }
 }
 
 function backupConfigs() {
@@ -681,6 +863,8 @@ window.showAddGroupForm = showAddGroupForm;
 window.hideAddGroupForm = hideAddGroupForm;
 window.showEditGroupForm = showEditGroupForm;
 window.hideEditGroupForm = hideEditGroupForm;
+window.showEditConnectionForm = showEditConnectionForm;
+window.hideEditConnectionForm = hideEditConnectionForm;
 window.deleteGroup = deleteGroup;
 window.connectToServer = connectToServer;
 window.testConnection = testConnection;
