@@ -1,6 +1,6 @@
 {
   "name": "ssh-manager",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "description": "A cross-platform GUI application for managing SSH configurations through organized folders and visual forms",
   "main": "src/main.js",
   "bin": {
