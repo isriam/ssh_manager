@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     validateAllConnections: () => ipcRenderer.invoke('ssh:validate-all-connections'),
     getSSHCommand: (name, group) => ipcRenderer.invoke('ssh:get-ssh-command', name, group),
     verifyConfigIntegrity: () => ipcRenderer.invoke('ssh:verify-config-integrity'),
-    connectToServer: (name, group) => ipcRenderer.invoke('ssh:connect-to-server', name, group)
+    connectToServer: (name, group) => ipcRenderer.invoke('ssh:connect-to-server', name, group),
+    migrateExistingConnection: (connectionName, toGroup) => ipcRenderer.invoke('ssh:migrate-existing-connection', connectionName, toGroup)
   }
 });

@@ -214,9 +214,10 @@ function createConnectionTreeItem(connection) {
   const item = document.createElement('div');
   const isExisting = !connection.managed;
   item.className = `connection-tree-item ${isExisting ? 'readonly-connection' : ''}`;
-  item.draggable = !isExisting;
+  item.draggable = true; // Allow both existing and managed connections to be dragged
   item.dataset.name = connection.name;
   item.dataset.group = connection.group;
+  item.dataset.isExisting = isExisting;
   
   const icon = isExisting ? '🔒' : '🖥️';
   const nameDisplay = isExisting ? `${connection.name} (Read-Only)` : connection.name;
@@ -382,7 +383,39 @@ async function handleDrop(e) {
   
   // Don't allow dropping to existing group or same group
   if (targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
-    await moveConnectionToGroup(draggedConnection.name, draggedConnection.group, targetGroup);
+    const isExistingConnection = draggedConnection.group === 'existing' || draggedConnection.isExisting === 'true';
+    
+    if (isExistingConnection) {
+      // Migrate existing connection to managed group
+      await migrateExistingConnection(draggedConnection.name, targetGroup);
+    } else {
+      // Move managed connection between groups
+      await moveConnectionToGroup(draggedConnection.name, draggedConnection.group, targetGroup);
+    }
+  }
+}
+
+async function migrateExistingConnection(connectionName, toGroup) {
+  try {
+    setStatus(`Migrating ${connectionName} to ${toGroup}...`);
+    
+    const result = await window.electronAPI.ssh.migrateExistingConnection(connectionName, toGroup);
+    
+    if (result.success) {
+      await loadConnections();
+      setStatus(`Migrated ${connectionName} to ${toGroup} successfully`);
+      showSuccess(`Connection "${connectionName}" migrated to ${toGroup} group! The original entry in ~/.ssh/config has been commented out.`);
+      
+      // Select the newly migrated connection
+      setTimeout(() => {
+        selectConnection(connectionName, toGroup);
+      }, 500);
+    } else {
+      throw new Error(result.error);
+    }
+  } catch (error) {
+    setStatus('Error migrating connection');
+    showError('Failed to migrate connection: ' + error.message);
   }
 }
 

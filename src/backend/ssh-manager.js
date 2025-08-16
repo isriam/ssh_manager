@@ -376,7 +376,15 @@ class SSHManager {
   }
 
   async getGroups() {
-    return await this.fileUtils.listGroups();
+    const groups = await this.fileUtils.listGroups();
+    
+    // Add "existing" group if there are existing SSH configurations
+    const existingConnections = await this.getExistingSSHConnections();
+    if (existingConnections.length > 0) {
+      groups.unshift('existing'); // Add at the beginning
+    }
+    
+    return groups;
   }
 
   async createGroup(groupName) {
@@ -467,6 +475,112 @@ class SSHManager {
 
     await this.fileUtils.deleteGroup(groupName);
     return { name: groupName };
+  }
+
+  async migrateExistingConnection(connectionName, toGroup) {
+    if (!connectionName || !toGroup) {
+      throw new Error('Connection name and target group are required');
+    }
+
+    // Prevent migration to 'existing' group
+    if (toGroup === 'existing') {
+      throw new Error('Cannot migrate to existing group');
+    }
+
+    // Get the existing connection details
+    const existingConnections = await this.getExistingSSHConnections();
+    const existingConnection = existingConnections.find(conn => conn.name === connectionName);
+    
+    if (!existingConnection) {
+      throw new Error(`Existing connection '${connectionName}' not found`);
+    }
+
+    // Check if target group exists
+    const groups = await this.fileUtils.listGroups();
+    if (!groups.includes(toGroup)) {
+      throw new Error(`Target group '${toGroup}' does not exist`);
+    }
+
+    // Check if connection already exists in target group
+    const existingInGroup = await this.fileUtils.readConfigFile(toGroup, connectionName);
+    if (existingInGroup) {
+      throw new Error(`Connection '${connectionName}' already exists in group '${toGroup}'`);
+    }
+
+    // Create the managed connection with the existing connection's settings
+    const migrationOptions = {
+      name: existingConnection.name,
+      host: existingConnection.host,
+      user: existingConnection.user,
+      port: existingConnection.port,
+      group: toGroup,
+      keyFile: existingConnection.keyFile,
+      template: 'basic-server' // Default template for migrated connections
+    };
+
+    // Add the new managed connection
+    await this.addConnection(migrationOptions);
+
+    // Comment out the original entry in ~/.ssh/config
+    await this.commentOutExistingConnection(connectionName);
+
+    return {
+      success: true,
+      message: `Connection '${connectionName}' migrated to '${toGroup}' group`,
+      connection: migrationOptions
+    };
+  }
+
+  async commentOutExistingConnection(connectionName) {
+    try {
+      const mainConfigPath = require('path').join(require('os').homedir(), '.ssh', 'config');
+      const fs = require('fs-extra');
+      
+      let configContent = await fs.readFile(mainConfigPath, 'utf8');
+      const lines = configContent.split('\n');
+      const newLines = [];
+      let inTargetHost = false;
+      let modified = false;
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmedLine = line.trim();
+
+        // Check if this is the start of our target host
+        if (trimmedLine.startsWith('Host ') && trimmedLine.includes(connectionName)) {
+          // Make sure it's an exact match (not a substring)
+          const hostValue = trimmedLine.substring(5).trim();
+          if (hostValue === connectionName) {
+            inTargetHost = true;
+            newLines.push(`# ${line} # Migrated to SSH Manager`);
+            modified = true;
+            continue;
+          }
+        }
+
+        // Check if we're starting a new host section
+        if (inTargetHost && trimmedLine.startsWith('Host ') && !trimmedLine.includes(connectionName)) {
+          inTargetHost = false;
+        }
+
+        // Comment out lines in the target host section
+        if (inTargetHost && trimmedLine && !trimmedLine.startsWith('#')) {
+          newLines.push(`# ${line} # Migrated to SSH Manager`);
+          modified = true;
+        } else {
+          newLines.push(line);
+        }
+      }
+
+      if (modified) {
+        await fs.writeFile(mainConfigPath, newLines.join('\n'));
+      }
+
+      return modified;
+    } catch (error) {
+      console.warn(`Warning: Could not comment out existing connection ${connectionName}:`, error.message);
+      return false;
+    }
   }
 
   async testConnection(name, group = 'personal') {

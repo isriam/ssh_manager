@@ -188,3 +188,12 @@ ipcMain.handle('ssh:connect-to-server', async (event, name, group) => {
     return { success: false, error: error.message };
   }
 });
+
+ipcMain.handle('ssh:migrate-existing-connection', async (event, connectionName, toGroup) => {
+  try {
+    const result = await sshManager.migrateExistingConnection(connectionName, toGroup);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
