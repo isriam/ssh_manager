@@ -112,4 +112,5 @@ local-ssh-configs/
 
 # Temporary files
 *.tmp
-*.temp
+*.tempCLAUDE.md
+**/CLAUDE.md
