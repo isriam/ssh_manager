@@ -22,7 +22,6 @@ function initializeEventListeners() {
   document.getElementById('add-group-form').addEventListener('submit', handleAddGroup);
   document.getElementById('edit-group-form').addEventListener('submit', handleEditGroup);
 
-  document.getElementById('test-all-btn').addEventListener('click', testAllConnections);
   document.getElementById('backup-btn').addEventListener('click', backupConfigs);
   document.getElementById('import-btn').addEventListener('click', importConfigs);
 
@@ -308,6 +307,7 @@ function showConnectionDetails(connection) {
           <button class="btn btn-secondary" onclick="testConnection('${connection.name}', '${connection.group}')">
             🔍 Test Connection
           </button>
+          ${isExisting ? `<button class="btn btn-secondary" onclick="showMigrateConnectionDialog('${connection.name}')">📁 Migrate to Group</button>` : ''}
           ${!isExisting ? `<button class="btn btn-secondary" onclick="editConnection('${connection.name}', '${connection.group}')">✏️ Edit</button>` : ''}
           ${!isExisting ? `<button class="btn btn-secondary" onclick="deleteConnection('${connection.name}', '${connection.group}')">🗑️ Delete</button>` : ''}
         </div>
@@ -730,49 +730,46 @@ async function handleEditConnection(e) {
   }
 }
 
-async function testAllConnections() {
+
+async function backupConfigs() {
   try {
-    setStatus('Testing all connections...');
-    const result = await window.electronAPI.ssh.validateAllConnections();
+    setStatus('Preparing export...');
+    
+    // Generate default filename with timestamp
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const defaultFilename = `ssh-manager-export-${timestamp}.zip`;
+    
+    // Show save dialog
+    const saveResult = await window.electronAPI.dialog.saveFile({
+      title: 'Export SSH Manager Configuration',
+      defaultPath: defaultFilename,
+      filters: [
+        { name: 'ZIP Archive', extensions: ['zip'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    });
+    
+    if (saveResult.canceled) {
+      setStatus('Export canceled');
+      return;
+    }
+    
+    setStatus('Creating export archive...');
+    
+    // Create the backup
+    const result = await window.electronAPI.ssh.createBackup(saveResult.filePath);
     
     if (result.success) {
-      const validationResults = result.data;
-      let successCount = 0;
-      let failCount = 0;
-      let configValidCount = 0;
-      let unreachableCount = 0;
-      
-      for (const test of validationResults) {
-        if (test.success && test.hostReachable) {
-          successCount++;
-        } else if (test.configValid && !test.hostReachable) {
-          configValidCount++;
-        } else {
-          failCount++;
-        }
-      }
-      
-      const total = validationResults.length;
-      const message = `Connection Test Results: ${successCount} successful, ${configValidCount} config valid (host unreachable), ${failCount} failed out of ${total} total`;
-      
-      setStatus(message);
-      showSuccess(message);
-      
-      // Show detailed results in console for debugging
-      console.log('Detailed validation results:', validationResults);
+      const sizeKB = Math.round(result.data.size / 1024);
+      setStatus(`Export created successfully: ${sizeKB} KB`);
+      showSuccess(`✅ Export created successfully!\n\nFile: ${result.data.filePath}\nSize: ${sizeKB} KB\nCreated: ${new Date(result.data.timestamp).toLocaleString()}\n\nExport includes:\n• SSH Manager configurations\n• SSH config file backup\n• Connection metadata\n\nNote: SSH private keys are NOT included for security reasons`);
     } else {
-      setStatus('Error testing connections');
-      showError('Failed to test connections: ' + result.error);
+      throw new Error(result.error);
     }
   } catch (error) {
-    setStatus('Error testing connections');
-    showError('Failed to test connections: ' + error.message);
+    setStatus('Export failed');
+    showError('Failed to create export: ' + error.message);
   }
-}
-
-function backupConfigs() {
-  setStatus('Creating backup...');
-  showSuccess('Configuration backup functionality coming in Phase 3');
 }
 
 function importConfigs() {
@@ -914,6 +911,57 @@ function showError(message) {
   alert('❌ ' + message);
 }
 
+async function showMigrateConnectionDialog(connectionName) {
+  // Get available groups (excluding 'existing')
+  const managedGroups = allGroups.filter(group => group !== 'existing');
+  
+  if (managedGroups.length === 0) {
+    showError('No groups available for migration. Please create a group first.');
+    return;
+  }
+  
+  // Create a simple modal for group selection
+  const modalHtml = `
+    <div class="modal-overlay" id="migrate-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Migrate Connection</h3>
+        </div>
+        <div class="modal-body">
+          <p>Migrate "${connectionName}" to which group?</p>
+          <p><small>This will copy the connection to the selected group and comment out the original entry in ~/.ssh/config</small></p>
+          <select id="migrate-group-select" class="form-control">
+            ${managedGroups.map(group => `<option value="${group}">${group}</option>`).join('')}
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="hideMigrateModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="confirmMigration('${connectionName}')">Migrate</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Add modal to DOM
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function hideMigrateModal() {
+  const modal = document.getElementById('migrate-modal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+async function confirmMigration(connectionName) {
+  const selectedGroup = document.getElementById('migrate-group-select').value;
+  hideMigrateModal();
+  
+  if (selectedGroup) {
+    await migrateExistingConnection(connectionName, selectedGroup);
+  }
+}
+
 // Global function exports for HTML onclick handlers
 window.showAddConnectionForm = showAddConnectionForm;
 window.hideAddConnectionForm = hideAddConnectionForm;
@@ -927,4 +975,7 @@ window.deleteGroup = deleteGroup;
 window.connectToServer = connectToServer;
 window.testConnection = testConnection;
 window.editConnection = editConnection;
+window.showMigrateConnectionDialog = showMigrateConnectionDialog;
+window.hideMigrateModal = hideMigrateModal;
+window.confirmMigration = confirmMigration;
 window.deleteConnection = deleteConnection;

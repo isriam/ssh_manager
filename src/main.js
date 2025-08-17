@@ -17,7 +17,7 @@ function createWindow() {
       preload: path.join(__dirname, 'frontend', 'preload.js')
     },
     title: 'SSH Manager',
-    icon: path.join(__dirname, '..', 'assets', 'icons', 'app-icon.png')
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png')
   });
 
   mainWindow.loadFile(path.join(__dirname, 'frontend', 'index.html'));
@@ -153,14 +153,6 @@ ipcMain.handle('ssh:delete-group', async (event, groupName) => {
   }
 });
 
-ipcMain.handle('ssh:validate-all-connections', async () => {
-  try {
-    const results = await sshManager.validateAllConnections();
-    return { success: true, data: results };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
 
 ipcMain.handle('ssh:get-ssh-command', async (event, name, group) => {
   try {
@@ -196,4 +188,19 @@ ipcMain.handle('ssh:migrate-existing-connection', async (event, connectionName, 
   } catch (error) {
     return { success: false, error: error.message };
   }
+});
+
+ipcMain.handle('ssh:create-backup', async (event, backupPath) => {
+  try {
+    const result = await sshManager.createBackup(backupPath);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('dialog:save-file', async (event, options) => {
+  const { dialog } = require('electron');
+  const result = await dialog.showSaveDialog(mainWindow, options);
+  return result;
 });

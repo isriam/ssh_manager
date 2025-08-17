@@ -1,0 +1,28 @@
+Include /home/jeremy/ssh_manager/config/*/*.conf
+
+Host ~/.ssh/config
+  HostName ~/.ssh/config
+
+Host pve
+  HostName 192.0.2.32
+  User jeremy
+
+Host ubunbu-ai
+  HostName 192.0.2.25
+  User jeremy
+
+Host ubuntu-services
+  HostName 192.0.2.12
+  User jeremy
+
+Host ubuntu-mm
+  HostName 192.0.2.14
+  User jeremy
+
+Host srx
+  HostName 10.99.99.1
+  User jeremy
+
+Host ex2200c
+  HostName 192.0.2.1
+  User jeremy

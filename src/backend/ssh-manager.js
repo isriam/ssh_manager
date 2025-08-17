@@ -115,6 +115,15 @@ class SSHManager {
             continue;
           }
           
+          // Skip invalid host entries (file paths, config references, etc.)
+          if (hostName.includes('/') || 
+              hostName.includes('\\') || 
+              hostName.includes('.ssh') ||
+              hostName.startsWith('#') ||
+              hostName.toLowerCase().includes('config')) {
+            continue;
+          }
+          
           // Check if this might be a managed config by looking for our template signatures
           // Since we're parsing the main config, we need a different approach
           const isManagedHost = await this.isManagedConnection(hostName);
@@ -584,6 +593,49 @@ class SSHManager {
   }
 
   async testConnection(name, group = 'personal') {
+    // Handle existing connections differently
+    if (group === 'existing') {
+      // For existing connections, test by trying SSH directly since they're in main config
+      try {
+        const { exec } = require('child_process');
+        const { promisify } = require('util');
+        const execAsync = promisify(exec);
+        
+        // Test if SSH can parse the configuration
+        await execAsync(`ssh -F ~/.ssh/config -o ConnectTimeout=2 -o BatchMode=yes ${name} echo "test"`, { timeout: 5000 });
+        
+        return { 
+          success: true, 
+          message: 'Connection successful',
+          configValid: true,
+          hostReachable: true
+        };
+      } catch (sshError) {
+        // Check if it's a connection error (which is expected) vs config error
+        if (sshError.message.includes('could not resolve hostname') || 
+            sshError.message.includes('Could not resolve hostname') ||
+            sshError.message.includes('connection refused') || 
+            sshError.message.includes('operation timed out') ||
+            sshError.message.includes('Operation timed out') ||
+            sshError.message.includes('kex_exchange_identification') ||
+            sshError.message.includes('Connection closed by remote host')) {
+          return { 
+            success: true, 
+            message: 'SSH configuration is valid (host unreachable but config syntax correct)',
+            configValid: true,
+            hostReachable: false
+          };
+        } else {
+          return { 
+            success: false, 
+            message: `SSH configuration error: ${sshError.message}`,
+            configValid: false
+          };
+        }
+      }
+    }
+
+    // For managed connections, use the original logic
     const content = await this.fileUtils.readConfigFile(group, name);
     
     if (!content) {
@@ -609,7 +661,7 @@ class SSHManager {
       const execAsync = promisify(exec);
       
       // Test if SSH can parse the configuration
-      await execAsync(`ssh -F ~/.ssh/config -o ConnectTimeout=1 -o BatchMode=yes ${name} echo "test"`, { timeout: 2000 });
+      await execAsync(`ssh -F ~/.ssh/config -o ConnectTimeout=2 -o BatchMode=yes ${name} echo "test"`, { timeout: 5000 });
     } catch (sshError) {
       // Check if it's a connection error (which is expected) vs config error
       if (sshError.message.includes('could not resolve hostname') || 
@@ -691,29 +743,100 @@ class SSHManager {
     }
   }
 
-  async validateAllConnections() {
-    const connections = await this.listConnections();
-    const results = [];
+  // Removed: validateAllConnections() - was causing segfaults
+  // Individual connection testing works fine via testConnection()
 
-    for (const connection of connections) {
-      try {
-        const testResult = await this.testConnection(connection.name, connection.group);
-        results.push({
-          name: connection.name,
-          group: connection.group,
-          ...testResult
+  async createBackup(backupPath) {
+    const archiver = require('archiver');
+    const fs = require('fs-extra');
+    const path = require('path');
+    
+    try {
+      // Get async data first
+      const connections = await this.listConnections();
+      const groups = await this.getGroups();
+      
+      // Create output stream
+      const output = fs.createWriteStream(backupPath);
+      const archive = archiver('zip', {
+        zlib: { level: 9 } // Maximum compression
+      });
+
+      return new Promise((resolve, reject) => {
+        output.on('close', () => {
+          console.log(`Backup created: ${archive.pointer()} total bytes`);
+          resolve({
+            success: true,
+            filePath: backupPath,
+            size: archive.pointer(),
+            timestamp: new Date().toISOString()
+          });
         });
-      } catch (error) {
-        results.push({
-          name: connection.name,
-          group: connection.group,
-          success: false,
-          message: error.message
+
+        archive.on('error', (err) => {
+          reject(err);
         });
-      }
+
+        // Pipe archive data to the file
+        archive.pipe(output);
+
+        try {
+          // Add SSH Manager configs (only config files, not development files)
+          const sshManagerPath = this.fileUtils.getSSHManagerPath();
+          if (fs.existsSync(sshManagerPath)) {
+            // Only include specific directories we need for backup
+            const configDir = path.join(sshManagerPath, 'config');
+            const keysDir = path.join(sshManagerPath, 'keys');
+            const templatesDir = path.join(sshManagerPath, 'templates');
+            const backupsDir = path.join(sshManagerPath, 'backups');
+            
+            if (fs.existsSync(configDir)) {
+              archive.directory(configDir, 'ssh_manager/config');
+            }
+            if (fs.existsSync(keysDir)) {
+              archive.directory(keysDir, 'ssh_manager/keys');
+            }
+            if (fs.existsSync(templatesDir)) {
+              archive.directory(templatesDir, 'ssh_manager/templates');
+            }
+            if (fs.existsSync(backupsDir)) {
+              archive.directory(backupsDir, 'ssh_manager/backups');
+            }
+          }
+
+          // Add main SSH config (backup copy)
+          const mainConfigPath = path.join(require('os').homedir(), '.ssh', 'config');
+          if (fs.existsSync(mainConfigPath)) {
+            archive.file(mainConfigPath, { name: 'ssh_config_backup.txt' });
+          }
+
+          // Note: SSH private keys are NOT included for security reasons
+          // Users should backup their SSH keys separately if needed
+
+          // Add metadata
+          const metadata = {
+            version: '0.1.2',
+            created: new Date().toISOString(),
+            platform: require('os').platform(),
+            hostname: require('os').hostname(),
+            user: require('os').userInfo().username,
+            connections: connections,
+            groups: groups
+          };
+
+          archive.append(JSON.stringify(metadata, null, 2), { name: 'backup_metadata.json' });
+
+          // Finalize the archive
+          archive.finalize();
+
+        } catch (error) {
+          reject(new Error(`Failed to create backup: ${error.message}`));
+        }
+      });
+      
+    } catch (error) {
+      throw new Error(`Failed to prepare backup: ${error.message}`);
     }
-
-    return results;
   }
 
   async getConnectionSSHCommand(name, group = 'personal') {
@@ -739,6 +862,94 @@ class SSHManager {
   }
 
   async connectToServer(name, group = 'personal') {
+    // Handle existing connections differently - they don't have separate config files
+    if (group === 'existing') {
+      // For existing connections, just use SSH directly since they're in main config
+      const sshCommand = {
+        simple: `ssh ${name}`,
+        explicit: `ssh -F ~/.ssh/config ${name}`,
+        config: { host: name, user: 'unknown', port: '22' }
+      };
+      
+      // Launch SSH connection in terminal
+      const { spawn } = require('child_process');
+      const os = require('os');
+      
+      try {
+        let terminalApp;
+        let terminalArgs;
+        
+        if (os.platform() === 'darwin') {
+          // macOS - use Terminal.app and bring it to front
+          terminalApp = 'osascript';
+          terminalArgs = [
+            '-e', 
+            `tell application "Terminal"
+              activate
+              set newTab to do script "${sshCommand.simple}"
+              activate
+            end tell`
+          ];
+        } else if (os.platform() === 'linux') {
+          // Linux - try common terminal emulators
+          const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm', 'x-terminal-emulator'];
+          let terminalFound = false;
+          
+          for (const terminal of terminals) {
+            try {
+              // Check if terminal exists
+              require('child_process').execSync(`which ${terminal}`, { stdio: 'ignore' });
+              
+              if (terminal === 'gnome-terminal') {
+                terminalApp = 'gnome-terminal';
+                terminalArgs = ['--', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+              } else if (terminal === 'konsole') {
+                terminalApp = 'konsole';
+                terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+              } else if (terminal === 'xfce4-terminal') {
+                terminalApp = 'xfce4-terminal';
+                terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+              } else {
+                terminalApp = terminal;
+                terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+              }
+              terminalFound = true;
+              break;
+            } catch (e) {
+              // Terminal not found, try next one
+              continue;
+            }
+          }
+          
+          if (!terminalFound) {
+            throw new Error('No suitable terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.');
+          }
+        } else if (os.platform() === 'win32') {
+          // Windows - use cmd with focus
+          terminalApp = 'cmd';
+          terminalArgs = ['/c', 'start', '/max', 'cmd', '/k', sshCommand.simple];
+        } else {
+          throw new Error(`Unsupported platform: ${os.platform()}`);
+        }
+
+        const child = spawn(terminalApp, terminalArgs, {
+          detached: true,
+          stdio: 'ignore'
+        });
+        
+        child.unref();
+        
+        return {
+          success: true,
+          message: `SSH connection to "${name}" launched in terminal`,
+          command: sshCommand.simple
+        };
+      } catch (error) {
+        throw new Error(`Failed to launch terminal: ${error.message}`);
+      }
+    }
+
+    // For managed connections, use the original logic
     const content = await this.fileUtils.readConfigFile(group, name);
     
     if (!content) {
@@ -774,9 +985,39 @@ class SSHManager {
           end tell`
         ];
       } else if (os.platform() === 'linux') {
-        // Linux - try common terminal emulators with focus
-        terminalApp = 'x-terminal-emulator';
-        terminalArgs = ['-e', sshCommand.simple, '--geometry', '80x24+100+100'];
+        // Linux - try common terminal emulators
+        const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm', 'x-terminal-emulator'];
+        let terminalFound = false;
+        
+        for (const terminal of terminals) {
+          try {
+            // Check if terminal exists
+            require('child_process').execSync(`which ${terminal}`, { stdio: 'ignore' });
+            
+            if (terminal === 'gnome-terminal') {
+              terminalApp = 'gnome-terminal';
+              terminalArgs = ['--', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+            } else if (terminal === 'konsole') {
+              terminalApp = 'konsole';
+              terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+            } else if (terminal === 'xfce4-terminal') {
+              terminalApp = 'xfce4-terminal';
+              terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+            } else {
+              terminalApp = terminal;
+              terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
+            }
+            terminalFound = true;
+            break;
+          } catch (e) {
+            // Terminal not found, try next one
+            continue;
+          }
+        }
+        
+        if (!terminalFound) {
+          throw new Error('No suitable terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.');
+        }
       } else if (os.platform() === 'win32') {
         // Windows - use cmd with focus
         terminalApp = 'cmd';

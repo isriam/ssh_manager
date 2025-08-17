@@ -12,10 +12,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
     createGroup: (groupName) => ipcRenderer.invoke('ssh:create-group', groupName),
     renameGroup: (oldName, newName) => ipcRenderer.invoke('ssh:rename-group', oldName, newName),
     deleteGroup: (groupName) => ipcRenderer.invoke('ssh:delete-group', groupName),
-    validateAllConnections: () => ipcRenderer.invoke('ssh:validate-all-connections'),
     getSSHCommand: (name, group) => ipcRenderer.invoke('ssh:get-ssh-command', name, group),
     verifyConfigIntegrity: () => ipcRenderer.invoke('ssh:verify-config-integrity'),
     connectToServer: (name, group) => ipcRenderer.invoke('ssh:connect-to-server', name, group),
-    migrateExistingConnection: (connectionName, toGroup) => ipcRenderer.invoke('ssh:migrate-existing-connection', connectionName, toGroup)
+    migrateExistingConnection: (connectionName, toGroup) => ipcRenderer.invoke('ssh:migrate-existing-connection', connectionName, toGroup),
+    createBackup: (backupPath) => ipcRenderer.invoke('ssh:create-backup', backupPath)
+  },
+  dialog: {
+    saveFile: (options) => ipcRenderer.invoke('dialog:save-file', options)
   }
 });
