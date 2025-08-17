@@ -35,13 +35,6 @@ ssh-manager create-shortcut  # Creates desktop shortcut
 
 ## Features
 
-### Current (Phase 1)
-- ✅ Project structure and git setup
-- 🔄 Core SSH config file management
-- ⏳ SSH config parsing and validation
-- ⏳ Template system
-
-### Planned (Phase 2-4)
 - **GUI Interface**: Electron-based desktop application
 - **Visual Forms**: Add/edit SSH connections without touching config files
 - **Connection Management**: One-click SSH launching
@@ -49,6 +42,7 @@ ssh-manager create-shortcut  # Creates desktop shortcut
 - **Templates**: Pre-built configurations for common scenarios
 - **Import/Export**: Backup and restore configurations
 - **Connection Testing**: Verify SSH connectivity
+- **Cross-Platform Distribution**: macOS, Windows, and Linux packages
 
 ## Architecture
 
@@ -94,12 +88,22 @@ ssh_manager/
 ├── src/
 │   ├── main.js              # Electron main process
 │   ├── backend/             # Core SSH management logic
+│   │   ├── ssh-manager.js   # Main SSH management class
+│   │   ├── file-utils.js    # File system utilities
+│   │   └── templates.js     # Template management
 │   └── frontend/            # GUI interface
+│       ├── index.html       # Main application window
+│       ├── app.js           # Frontend application logic
+│       ├── preload.js       # Electron preload script
+│       └── styles.css       # Application styles
 ├── assets/
-│   ├── icons/               # Application icons
-│   └── templates/           # SSH config templates
-└── bin/
-    └── ssh-manager.js       # CLI entry point
+│   └── icons/               # Application icons (all platforms)
+├── templates/               # SSH config templates
+├── bin/
+│   └── ssh-manager.js       # CLI entry point
+└── scripts/                 # Installation scripts
+    ├── postinstall.js       # Post-installation setup
+    └── preuninstall.js      # Pre-uninstall cleanup
 ```
 
 ### Development Setup
@@ -110,12 +114,14 @@ npm install
 npm run dev
 ```
 
-### Development Phases
-
-1. **Phase 1**: Core Backend (Node.js Foundation) - *Current*
-2. **Phase 2**: Electron Application Shell
-3. **Phase 3**: GUI Frontend Development
-4. **Phase 4**: System Integration & Packaging
+### Available Scripts
+```bash
+npm start          # Launch the application
+npm run dev        # Development mode with DevTools
+npm run build      # Build distribution packages
+npm run test       # Run test suite
+npm run lint       # Code linting
+```
 
 ## Contributing
 
@@ -135,6 +141,6 @@ SSH Manager is a defensive security tool focused on:
 
 ---
 
-**Status**: Phase 1 Development  
+**Version**: 0.1.2  
 **Repository**: https://github.com/isriam/ssh_manager  
-**npm Package**: `ssh-manager` (coming soon)
+**npm Package**: `ssh-manager`
