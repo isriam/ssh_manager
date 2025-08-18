@@ -204,3 +204,16 @@ ipcMain.handle('dialog:save-file', async (event, options) => {
   const result = await dialog.showSaveDialog(mainWindow, options);
   return result;
 });
+
+ipcMain.handle('window:resize', async (event, width, height) => {
+  try {
+    if (mainWindow) {
+      mainWindow.setSize(width, height);
+      mainWindow.center();
+      return { success: true };
+    }
+    return { success: false, error: 'No main window available' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

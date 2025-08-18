@@ -3,12 +3,88 @@ let allGroups = [];
 let selectedConnection = null;
 let draggedConnection = null;
 
+// App state management for view modes
+const AppState = {
+  viewMode: 'full', // 'full' | 'compact'
+  selectedConnection: null,
+  
+  setViewMode(mode) {
+    this.viewMode = mode;
+    this.updateLayout();
+    this.saveState();
+  },
+  
+  setSelectedConnection(connection) {
+    this.selectedConnection = connection;
+    this.updateCompactActions();
+  },
+  
+  updateLayout() {
+    const container = document.querySelector('.app-container');
+    const compactActions = document.getElementById('compact-actions');
+    
+    if (this.viewMode === 'compact') {
+      container.classList.add('compact-mode');
+      compactActions.style.display = 'block';
+      this.resizeWindow(450, 650);
+    } else {
+      container.classList.remove('compact-mode');
+      compactActions.style.display = 'none';
+      this.resizeWindow(1200, 800);
+    }
+  },
+  
+  updateCompactActions() {
+    const connectBtn = document.getElementById('compact-connect-btn');
+    const detailsBtn = document.getElementById('compact-details-btn');
+    const editBtn = document.getElementById('compact-edit-btn');
+    const infoElement = document.querySelector('.compact-connection-text');
+    
+    if (this.selectedConnection && this.viewMode === 'compact') {
+      connectBtn.disabled = false;
+      detailsBtn.disabled = false;
+      editBtn.disabled = false;
+      
+      infoElement.textContent = `${this.selectedConnection.user}@${this.selectedConnection.host}:${this.selectedConnection.port}`;
+      infoElement.classList.add('has-selection');
+    } else {
+      connectBtn.disabled = true;
+      detailsBtn.disabled = true;
+      editBtn.disabled = true;
+      
+      infoElement.textContent = 'Select a connection';
+      infoElement.classList.remove('has-selection');
+    }
+  },
+  
+  resizeWindow(width, height) {
+    if (window.electronAPI && window.electronAPI.window) {
+      window.electronAPI.window.resize(width, height);
+    }
+  },
+  
+  saveState() {
+    localStorage.setItem('ssh-manager-view-mode', this.viewMode);
+  },
+  
+  loadState() {
+    const savedMode = localStorage.getItem('ssh-manager-view-mode');
+    if (savedMode) {
+      this.viewMode = savedMode;
+      this.updateLayout();
+    }
+  }
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
   initializeEventListeners();
   await loadGroups();
   await loadConnections();
   await loadTemplates();
   initializeDragAndDrop();
+  
+  // Load saved view mode
+  AppState.loadState();
 });
 
 function initializeEventListeners() {
@@ -22,10 +98,33 @@ function initializeEventListeners() {
   document.getElementById('add-group-form').addEventListener('submit', handleAddGroup);
   document.getElementById('edit-group-form').addEventListener('submit', handleEditGroup);
 
-  document.getElementById('backup-btn').addEventListener('click', backupConfigs);
 
   // Add template change listener for edit form
   document.getElementById('edit-template').addEventListener('change', handleEditTemplateChange);
+  
+  // Menu system event listeners
+  initializeMenuSystem();
+  
+  // Compact mode button listeners
+  document.getElementById('compact-connect-btn').addEventListener('click', () => {
+    if (AppState.selectedConnection) {
+      connectToServer(AppState.selectedConnection.name, AppState.selectedConnection.group);
+    }
+  });
+  
+  document.getElementById('compact-details-btn').addEventListener('click', () => {
+    AppState.setViewMode('full');
+    if (AppState.selectedConnection) {
+      selectConnection(AppState.selectedConnection.name, AppState.selectedConnection.group);
+    }
+  });
+  
+  document.getElementById('compact-edit-btn').addEventListener('click', () => {
+    AppState.setViewMode('full');
+    if (AppState.selectedConnection) {
+      editConnection(AppState.selectedConnection.name, AppState.selectedConnection.group);
+    }
+  });
   
   // Phase 2: Dynamic port forward management
   document.getElementById('add-local-forward').addEventListener('click', addLocalForwardRow);
@@ -35,6 +134,126 @@ function initializeEventListeners() {
 async function refreshAll() {
   await loadGroups();
   await loadConnections();
+}
+
+// Menu System Functions
+function initializeMenuSystem() {
+  // Menu dropdown toggle functionality
+  document.querySelectorAll('.menu-item').forEach(menuItem => {
+    const menuLabel = menuItem.querySelector('.menu-label');
+    const dropdown = menuItem.querySelector('.dropdown-menu');
+    
+    menuLabel.addEventListener('click', (e) => {
+      e.stopPropagation();
+      
+      // Close other dropdowns
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        if (menu !== dropdown) {
+          menu.classList.remove('show');
+          menu.parentElement.classList.remove('active');
+        }
+      });
+      
+      // Toggle current dropdown
+      dropdown.classList.toggle('show');
+      menuItem.classList.toggle('active');
+    });
+  });
+  
+  // Menu option click handlers
+  document.querySelectorAll('.menu-option').forEach(option => {
+    option.addEventListener('click', (e) => {
+      const action = option.dataset.action;
+      handleMenuAction(action);
+      
+      // Close all dropdowns
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.classList.remove('show');
+        menu.parentElement.classList.remove('active');
+      });
+    });
+  });
+  
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.dropdown-menu').forEach(menu => {
+      menu.classList.remove('show');
+      menu.parentElement.classList.remove('active');
+    });
+  });
+  
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey) {
+      switch(e.key) {
+        case 'n':
+          e.preventDefault();
+          handleMenuAction('add-connection');
+          break;
+        case 'e':
+          e.preventDefault();
+          handleMenuAction('export-connections');
+          break;
+        case 'o':
+          e.preventDefault();
+          handleMenuAction('import-connections');
+          break;
+        case '1':
+          e.preventDefault();
+          handleMenuAction('compact-mode');
+          break;
+        case '2':
+          e.preventDefault();
+          handleMenuAction('full-mode');
+          break;
+        case 'r':
+          e.preventDefault();
+          handleMenuAction('refresh');
+          break;
+      }
+    }
+  });
+}
+
+function handleMenuAction(action) {
+  switch(action) {
+    case 'add-connection':
+      // Switch to full mode for adding connections
+      if (AppState.viewMode === 'compact') {
+        AppState.setViewMode('full');
+      }
+      showAddConnectionForm();
+      break;
+      
+    case 'export-connections':
+      backupConfigs();
+      break;
+      
+    case 'import-connections':
+      // TODO: Implement import functionality
+      showError('Import functionality coming soon!');
+      break;
+      
+    case 'settings':
+      // TODO: Implement settings
+      showError('Settings coming soon!');
+      break;
+      
+    case 'compact-mode':
+      AppState.setViewMode('compact');
+      break;
+      
+    case 'full-mode':
+      AppState.setViewMode('full');
+      break;
+      
+    case 'refresh':
+      refreshAll();
+      break;
+      
+    default:
+      console.log('Unknown menu action:', action);
+  }
 }
 
 function initializeDragAndDrop() {
@@ -255,7 +474,14 @@ function selectConnection(name, group) {
   if (item) {
     item.classList.add('selected');
     selectedConnection = allConnections.find(c => c.name === name && c.group === group);
-    showConnectionDetails(selectedConnection);
+    
+    // Update app state for compact mode
+    AppState.setSelectedConnection(selectedConnection);
+    
+    // Show details in full mode
+    if (AppState.viewMode === 'full') {
+      showConnectionDetails(selectedConnection);
+    }
   }
 }
 

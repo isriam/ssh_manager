@@ -38,6 +38,83 @@ body {
   gap: 12px;
 }
 
+/* Universal Menu Bar */
+.menu-bar {
+  display: flex;
+  gap: 16px;
+  margin-left: 24px;
+}
+
+.menu-item {
+  position: relative;
+  cursor: pointer;
+}
+
+.menu-label {
+  color: white;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.menu-item:hover .menu-label {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.menu-item.active .menu-label {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  z-index: 1000;
+  display: none;
+}
+
+.dropdown-menu.show {
+  display: block;
+}
+
+.menu-option {
+  padding: 8px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  transition: background-color 0.2s;
+}
+
+.menu-option:hover {
+  background-color: #f5f5f5;
+}
+
+.menu-option span:first-child {
+  font-weight: 500;
+}
+
+.shortcut {
+  color: #666;
+  font-size: 12px;
+  font-family: monospace;
+}
+
+.menu-separator {
+  height: 1px;
+  background-color: #e1e1e1;
+  margin: 4px 0;
+}
+
 /* Buttons */
 .btn {
   padding: 8px 16px;
@@ -911,5 +988,116 @@ select[title]:focus {
 #add-local-forward,
 #add-edit-local-forward {
   margin-top: 8px;
+}
+
+/* Compact Mode Styles */
+.app-container.compact-mode {
+  width: 400px;
+  min-width: 400px;
+  max-width: 400px;
+}
+
+.app-container.compact-mode .main-content {
+  display: none !important;
+}
+
+.app-container.compact-mode .app-content {
+  display: block; /* Override flex layout */
+}
+
+.app-container.compact-mode .sidebar {
+  width: 100%;
+  border-right: none;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+
+/* Hide header buttons in compact mode */
+.app-container.compact-mode .header-actions {
+  display: none;
+}
+
+/* Compact Action Buttons */
+.compact-actions {
+  margin-top: auto;
+  padding: 16px;
+  border-top: 1px solid #e1e1e1;
+  background: #f8f9fa;
+}
+
+.compact-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.compact-btn {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.compact-btn-primary {
+  background: #007acc;
+  color: white;
+}
+
+.compact-btn-primary:hover {
+  background: #005a99;
+}
+
+.compact-btn-secondary {
+  background: white;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.compact-btn-secondary:hover {
+  background: #f5f5f5;
+}
+
+.compact-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.compact-info {
+  border-top: 1px solid #e1e1e1;
+  padding-top: 12px;
+}
+
+.compact-connection-details {
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.4;
+}
+
+.compact-connection-text {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.compact-connection-text.has-selection {
+  color: #333;
+  font-weight: 500;
+}
+
+/* Compact mode tree adjustments */
+.app-container.compact-mode .tree-container {
+  max-height: 300px;
+  overflow-y: auto;
 }
 }

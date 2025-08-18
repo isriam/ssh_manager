@@ -20,5 +20,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   dialog: {
     saveFile: (options) => ipcRenderer.invoke('dialog:save-file', options)
+  },
+  window: {
+    resize: (width, height) => ipcRenderer.invoke('window:resize', width, height)
   }
 });
