@@ -32,6 +32,8 @@ const AppState = {
       container.classList.remove('compact-mode');
       compactLayout.style.display = 'none';
       this.resizeWindow(1200, 800);
+      // Reinitialize menu system when going back to full mode
+      setupMenuDropdowns();
     }
   },
   
