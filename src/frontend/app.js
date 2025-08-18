@@ -89,7 +89,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function initializeEventListeners() {
   document.getElementById('add-connection-btn').addEventListener('click', showAddConnectionForm);
-  document.getElementById('refresh-btn').addEventListener('click', refreshAll);
   document.getElementById('search-input').addEventListener('input', filterConnections);
   document.getElementById('add-connection-form').addEventListener('submit', handleAddConnection);
   document.getElementById('edit-connection-form').addEventListener('submit', handleEditConnection);
