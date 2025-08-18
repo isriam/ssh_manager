@@ -42,6 +42,9 @@ const AppState = {
     if (originalTree && compactTree) {
       compactTree.innerHTML = originalTree.innerHTML;
     }
+    
+    // Reinitialize menu system for compact layout
+    setupMenuDropdowns();
   },
   
   updateCompactActions() {
@@ -175,12 +178,23 @@ async function refreshAll() {
 
 // Menu System Functions
 function initializeMenuSystem() {
+  // Initialize menus after DOM is ready - will be called again when compact layout is populated
+  setupMenuDropdowns();
+}
+
+function setupMenuDropdowns() {
   // Menu dropdown toggle functionality (handles both regular and compact menus)
   document.querySelectorAll('.menu-item').forEach(menuItem => {
     const menuLabel = menuItem.querySelector('.menu-label');
     const dropdown = menuItem.querySelector('.dropdown-menu');
     
-    menuLabel.addEventListener('click', (e) => {
+    if (!menuLabel || !dropdown) return;
+    
+    // Remove existing listeners to avoid duplicates
+    menuLabel.removeEventListener('click', handleMenuClick);
+    menuLabel.addEventListener('click', handleMenuClick);
+    
+    function handleMenuClick(e) {
       e.stopPropagation();
       
       // Close other dropdowns
@@ -194,22 +208,26 @@ function initializeMenuSystem() {
       // Toggle current dropdown
       dropdown.classList.toggle('show');
       menuItem.classList.toggle('active');
-    });
+    }
   });
   
-  // Menu option click handlers
+  // Menu option click handlers (remove existing first to avoid duplicates)
   document.querySelectorAll('.menu-option').forEach(option => {
-    option.addEventListener('click', (e) => {
-      const action = option.dataset.action;
-      handleMenuAction(action);
-      
-      // Close all dropdowns
-      document.querySelectorAll('.dropdown-menu').forEach(menu => {
-        menu.classList.remove('show');
-        menu.parentElement.classList.remove('active');
-      });
-    });
+    // Remove existing listener if present
+    option.removeEventListener('click', handleMenuOptionClick);
+    option.addEventListener('click', handleMenuOptionClick);
   });
+  
+  function handleMenuOptionClick(e) {
+    const action = this.dataset.action;
+    handleMenuAction(action);
+    
+    // Close all dropdowns
+    document.querySelectorAll('.dropdown-menu').forEach(menu => {
+      menu.classList.remove('show');
+      menu.parentElement.classList.remove('active');
+    });
+  }
   
   // Close dropdowns when clicking outside
   document.addEventListener('click', () => {
