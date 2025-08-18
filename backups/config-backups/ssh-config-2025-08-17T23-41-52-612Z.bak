@@ -1,0 +1,26 @@
+Include /home/jeremy/ssh_manager/config/*/*.conf
+
+
+# Host pve # Migrated to SSH Manager
+#   HostName 192.0.2.32 # Migrated to SSH Manager
+#   User jeremy # Migrated to SSH Manager
+
+# Host ubuntu-ai # Migrated to SSH Manager
+#   HostName 192.0.2.25 # Migrated to SSH Manager
+#   User jeremy # Migrated to SSH Manager
+
+# Host ubuntu-services # Migrated to SSH Manager
+#   HostName 192.0.2.12 # Migrated to SSH Manager
+#   User jeremy # Migrated to SSH Manager
+
+# Host ubuntu-mm # Migrated to SSH Manager
+#   HostName 192.0.2.14 # Migrated to SSH Manager
+#   User jeremy # Migrated to SSH Manager
+
+# Host srx # Migrated to SSH Manager
+#   HostName 10.99.99.1 # Migrated to SSH Manager
+#   User jeremy # Migrated to SSH Manager
+
+# Host ex2200c # Migrated to SSH Manager
+#   HostName 192.0.2.1 # Migrated to SSH Manager
+#   User jeremy # Migrated to SSH Manager
