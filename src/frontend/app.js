@@ -118,6 +118,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Load saved view mode
   AppState.loadState();
+  
+  // Ensure menu system is initialized after everything is loaded
+  setTimeout(() => {
+    setupMenuDropdowns();
+  }, 100);
 });
 
 function initializeEventListeners() {
