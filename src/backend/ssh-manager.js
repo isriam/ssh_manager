@@ -419,75 +419,75 @@ class SSHManager {
     return groups;
   }
 
-  async createGroup(groupName) {
-    if (!groupName || typeof groupName !== 'string' || groupName.trim() === '') {
-      throw new Error('Group name is required');
-    }
-
-    const sanitizedName = groupName.toLowerCase().replace(/[^a-z0-9-_]/g, '');
-    if (sanitizedName !== groupName.toLowerCase()) {
-      throw new Error('Group name can only contain letters, numbers, hyphens, and underscores');
-    }
-
-    if (sanitizedName.length < 2) {
-      throw new Error('Group name must be at least 2 characters long');
-    }
-
-    const existingGroups = await this.fileUtils.listGroups();
-    if (existingGroups.includes(sanitizedName)) {
-      throw new Error(`Group '${sanitizedName}' already exists`);
-    }
-
-    await this.fileUtils.createGroup(sanitizedName);
-    return { name: sanitizedName };
+  async getGroupsTree() {
+    return await this.fileUtils.getGroupsTree();
   }
 
-  async renameGroup(oldName, newName) {
-    if (!oldName || !newName) {
-      throw new Error('Both old and new group names are required');
+  async createGroup(groupPath) {
+    if (!groupPath || typeof groupPath !== 'string' || groupPath.trim() === '') {
+      throw new Error('Group path is required');
     }
 
-    const sanitizedNewName = newName.toLowerCase().replace(/[^a-z0-9-_]/g, '');
-    if (sanitizedNewName !== newName.toLowerCase()) {
-      throw new Error('Group name can only contain letters, numbers, hyphens, and underscores');
+    // Use file-utils validation for nested paths
+    if (!this.fileUtils.isValidGroupPath(groupPath)) {
+      throw new Error('Invalid group path. Use letters, numbers, hyphens, underscores, and forward slashes for nesting (e.g., work/company-a)');
     }
 
-    if (sanitizedNewName.length < 2) {
-      throw new Error('Group name must be at least 2 characters long');
-    }
+    const normalizedPath = this.fileUtils.parseGroupPath(groupPath).normalized;
 
     const existingGroups = await this.fileUtils.listGroups();
-    if (!existingGroups.includes(oldName)) {
-      throw new Error(`Group '${oldName}' does not exist`);
+    if (existingGroups.includes(normalizedPath)) {
+      throw new Error(`Group '${normalizedPath}' already exists`);
     }
 
-    if (existingGroups.includes(sanitizedNewName)) {
-      throw new Error(`Group '${sanitizedNewName}' already exists`);
+    const createdPath = await this.fileUtils.createGroup(normalizedPath);
+    return { name: createdPath };
+  }
+
+  async renameGroup(oldPath, newPath) {
+    if (!oldPath || !newPath) {
+      throw new Error('Both old and new group paths are required');
     }
 
-    const connections = await this.listConnections(oldName);
+    // Validate new path
+    if (!this.fileUtils.isValidGroupPath(newPath)) {
+      throw new Error('Invalid new group path. Use letters, numbers, hyphens, underscores, and forward slashes for nesting (e.g., work/company-a)');
+    }
+
+    const normalizedNewPath = this.fileUtils.parseGroupPath(newPath).normalized;
+
+    const existingGroups = await this.fileUtils.listGroups();
+    if (!existingGroups.includes(oldPath)) {
+      throw new Error(`Group '${oldPath}' does not exist`);
+    }
+
+    if (existingGroups.includes(normalizedNewPath)) {
+      throw new Error(`Group '${normalizedNewPath}' already exists`);
+    }
+
+    const connections = await this.listConnections(oldPath);
     
     // Read all connection file contents BEFORE moving the directory
     const connectionContents = [];
     for (const connection of connections) {
-      const content = await this.fileUtils.readConfigFile(oldName, connection.name);
+      const content = await this.fileUtils.readConfigFile(oldPath, connection.name);
       connectionContents.push({
         name: connection.name,
         content: content
       });
     }
     
-    await this.fileUtils.renameGroup(oldName, sanitizedNewName);
+    await this.fileUtils.renameGroup(oldPath, normalizedNewPath);
     
     // Write the connection contents to the new location
     for (const connectionData of connectionContents) {
       if (connectionData.content) {
-        await this.fileUtils.writeConfigFile(sanitizedNewName, connectionData.name, connectionData.content);
+        await this.fileUtils.writeConfigFile(normalizedNewPath, connectionData.name, connectionData.content);
       }
     }
 
     await this.updateMainSSHConfig();
-    return { oldName, newName: sanitizedNewName };
+    return { oldName: oldPath, newName: normalizedNewPath };
   }
 
   async deleteGroup(groupName) {

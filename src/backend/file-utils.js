@@ -10,6 +10,100 @@ class FileUtils {
     this.sshConfigPath = path.join(this.sshDir, 'config');
   }
 
+  // Nested Groups - Path Parsing Utilities
+  
+  /**
+   * Parse a group path into its components
+   * @param {string} groupPath - Group path like 'work/company-a/dev'
+   * @returns {object} - { segments: ['work', 'company-a', 'dev'], depth: 3, parent: 'work/company-a', name: 'dev' }
+   */
+  parseGroupPath(groupPath) {
+    if (!groupPath || typeof groupPath !== 'string') {
+      throw new Error('Group path must be a non-empty string');
+    }
+
+    // Normalize path - remove leading/trailing slashes, collapse multiple slashes
+    const normalized = groupPath.replace(/^\/+|\/+$/g, '').replace(/\/+/g, '/');
+    
+    if (!normalized) {
+      throw new Error('Group path cannot be empty after normalization');
+    }
+
+    const segments = normalized.split('/');
+    const depth = segments.length;
+    const name = segments[segments.length - 1];
+    const parent = depth > 1 ? segments.slice(0, -1).join('/') : null;
+
+    return {
+      original: groupPath,
+      normalized,
+      segments,
+      depth,
+      name,
+      parent
+    };
+  }
+
+  /**
+   * Get all parent paths for a given group path
+   * @param {string} groupPath - Group path like 'work/company-a/dev'
+   * @returns {string[]} - ['work', 'work/company-a']
+   */
+  getParentPaths(groupPath) {
+    const parsed = this.parseGroupPath(groupPath);
+    const parents = [];
+    
+    for (let i = 1; i < parsed.segments.length; i++) {
+      parents.push(parsed.segments.slice(0, i).join('/'));
+    }
+    
+    return parents;
+  }
+
+  /**
+   * Check if a group path is valid
+   * @param {string} groupPath - Group path to validate
+   * @returns {boolean} - Whether the path is valid
+   */
+  isValidGroupPath(groupPath) {
+    try {
+      const parsed = this.parseGroupPath(groupPath);
+      
+      // Each segment must be valid
+      for (const segment of parsed.segments) {
+        if (!this.isValidGroupName(segment)) {
+          return false;
+        }
+      }
+      
+      // Additional nested path validations
+      if (parsed.depth > 10) { // Reasonable nesting limit
+        return false;
+      }
+      
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Check if a single group name (segment) is valid
+   * @param {string} name - Single group name segment
+   * @returns {boolean} - Whether the segment is valid
+   */
+  isValidGroupName(name) {
+    if (!name || typeof name !== 'string') {
+      return false;
+    }
+    
+    // Allow letters, numbers, hyphens, underscores (but not slashes in individual segments)
+    const validPattern = /^[a-z0-9][a-z0-9_-]*$/i;
+    
+    // Must be at least 2 characters and not too long
+    return name.length >= 2 && name.length <= 50 && validPattern.test(name);
+  }
+
   async ensureDirectoryStructure() {
     const directories = [
       this.sshManagerDir,
@@ -177,28 +271,92 @@ class FileUtils {
       return [];
     }
 
-    const items = await fs.readdir(configDir);
-    const groups = [];
-
-    for (const item of items) {
-      const itemPath = path.join(configDir, item);
-      const stat = await fs.stat(itemPath);
-      if (stat.isDirectory()) {
-        groups.push(item);
-      }
-    }
-
+    // Recursively scan for all group directories
+    const groups = await this._scanGroupsRecursively(configDir, '');
     return groups.sort();
   }
 
-  async createGroup(groupName) {
-    const configDir = path.join(this.sshManagerDir, 'config', groupName);
-    const keysDir = path.join(this.sshManagerDir, 'keys', groupName);
+  /**
+   * Recursively scan for group directories
+   * @private
+   */
+  async _scanGroupsRecursively(baseDir, currentPath) {
+    const groups = [];
     
+    try {
+      const items = await fs.readdir(baseDir);
+      
+      for (const item of items) {
+        const itemPath = path.join(baseDir, item);
+        const stat = await fs.stat(itemPath);
+        
+        if (stat.isDirectory()) {
+          const groupPath = currentPath ? `${currentPath}/${item}` : item;
+          groups.push(groupPath);
+          
+          // Recursively scan subdirectories
+          const subGroups = await this._scanGroupsRecursively(itemPath, groupPath);
+          groups.push(...subGroups);
+        }
+      }
+    } catch (error) {
+      // If we can't read a directory, skip it but don't fail entirely
+      console.warn(`Warning: Could not read directory ${baseDir}:`, error.message);
+    }
+    
+    return groups;
+  }
+
+  /**
+   * Get groups organized in a hierarchical tree structure
+   * @returns {Object} Tree structure with nested groups
+   */
+  async getGroupsTree() {
+    const allGroups = await this.listGroups();
+    const tree = {};
+    
+    for (const groupPath of allGroups) {
+      const parsed = this.parseGroupPath(groupPath);
+      
+      // Build tree structure
+      let current = tree;
+      for (let i = 0; i < parsed.segments.length; i++) {
+        const segment = parsed.segments[i];
+        const partialPath = parsed.segments.slice(0, i + 1).join('/');
+        
+        if (!current[segment]) {
+          current[segment] = {
+            name: segment,
+            fullPath: partialPath,
+            children: {},
+            connections: []
+          };
+        }
+        current = current[segment].children;
+      }
+    }
+    
+    return tree;
+  }
+
+  async createGroup(groupPath) {
+    // Validate the group path
+    if (!this.isValidGroupPath(groupPath)) {
+      throw new Error(`Invalid group path: ${groupPath}`);
+    }
+
+    const parsed = this.parseGroupPath(groupPath);
+    const normalizedPath = parsed.normalized;
+
+    // Create nested directory structure
+    const configDir = path.join(this.sshManagerDir, 'config', normalizedPath);
+    const keysDir = path.join(this.sshManagerDir, 'keys', normalizedPath);
+    
+    // Ensure all parent directories exist first
     await fs.ensureDir(configDir);
     await fs.ensureDir(keysDir);
     
-    return groupName;
+    return normalizedPath;
   }
 
   async renameGroup(oldName, newName) {

@@ -447,6 +447,135 @@ body {
   background: #fafafa;
 }
 
+/* Nested Tree Styles for Phase 2 */
+
+/* Nested group indentation */
+.nested-group {
+  position: relative;
+}
+
+.nested-group .tree-node-header {
+  position: relative;
+}
+
+/* Visual depth indicators */
+.depth-0 .tree-node-header { background: rgba(44, 62, 80, 0.02); }
+.depth-1 .tree-node-header { background: rgba(44, 62, 80, 0.04); }
+.depth-2 .tree-node-header { background: rgba(44, 62, 80, 0.06); }
+.depth-3 .tree-node-header { background: rgba(44, 62, 80, 0.08); }
+
+/* Tree lines for visual hierarchy */
+.nested-group::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #e1e5e9;
+  z-index: 1;
+}
+
+.nested-group:last-child::before {
+  bottom: 24px; /* Stop line at middle of last item */
+}
+
+/* Horizontal tree lines */
+.nested-group .tree-node-header::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  width: 15px;
+  height: 1px;
+  background: #e1e5e9;
+  z-index: 2;
+}
+
+/* Toggle styling for nested groups */
+.tree-toggle {
+  min-width: 16px;
+  text-align: center;
+  margin-right: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  color: #666;
+  transition: color 0.2s;
+}
+
+.tree-toggle:hover {
+  color: #2c3e50;
+}
+
+.tree-toggle.no-children {
+  color: #ccc;
+  cursor: default;
+}
+
+/* Nested group action buttons */
+.group-action-btn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 11px;
+  transition: background-color 0.2s;
+}
+
+.group-action-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.group-action-btn.add-subgroup {
+  color: #3498db;
+}
+
+.group-action-btn.add-connection {
+  color: #27ae60;
+}
+
+.group-action-btn.edit {
+  color: #f39c12;
+}
+
+.group-action-btn.delete {
+  color: #e74c3c;
+}
+
+.group-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Expanded/collapsed states */
+.nested-group.expanded > .tree-children {
+  display: block;
+}
+
+.nested-group.collapsed > .tree-children {
+  display: none;
+}
+
+/* Connection items in nested groups */
+.nested-group .connection-tree-item {
+  margin-left: 20px;
+  border-left: 2px solid transparent;
+}
+
+.nested-group .connection-tree-item:hover {
+  border-left-color: #3498db;
+}
+
+/* Group name tooltip for long paths */
+.group-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .action-list {
   list-style: none;
 }
@@ -991,7 +1120,7 @@ select[title]:focus {
   position: fixed;
   top: 0;
   left: 0;
-  width: 400px !important;
+  width: 100vw !important;  /* Take full window width instead of fixed 400px */
   height: 100vh;
   background: white;
   z-index: 10000;
@@ -1144,5 +1273,82 @@ select[title]:focus {
 .app-container.compact-mode .tree-container {
   max-height: 300px;
   overflow-y: auto;
+}
+
+/* Compact Mode Nested Group Optimizations */
+
+/* Reduce indentation for compact mode */
+.app-container.compact-mode .nested-group .tree-node-header {
+  padding-left: 8px; /* Override individual padding-left set by JS */
+}
+
+/* Reduce depth-based indentation in compact mode */
+.app-container.compact-mode .depth-0 .tree-node-header { padding-left: 8px !important; }
+.app-container.compact-mode .depth-1 .tree-node-header { padding-left: 20px !important; }
+.app-container.compact-mode .depth-2 .tree-node-header { padding-left: 32px !important; }
+.app-container.compact-mode .depth-3 .tree-node-header { padding-left: 44px !important; }
+
+/* Smaller toggle buttons in compact mode */
+.app-container.compact-mode .tree-toggle {
+  min-width: 12px;
+  font-size: 10px;
+  margin-right: 6px;
+}
+
+/* Smaller group icons and text in compact mode */
+.app-container.compact-mode .group-icon {
+  font-size: 12px;
+  margin-right: 6px;
+}
+
+.app-container.compact-mode .group-name {
+  font-size: 13px;
+  max-width: 120px; /* Increase from default for longer paths */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Smaller action buttons in compact mode */
+.app-container.compact-mode .group-action-btn {
+  padding: 1px 3px;
+  font-size: 10px;
+  margin-left: 2px;
+}
+
+/* Reduce spacing between tree items in compact mode */
+.app-container.compact-mode .tree-node {
+  margin-bottom: 1px;
+}
+
+.app-container.compact-mode .tree-node-header {
+  padding: 4px 8px;
+  min-height: 24px;
+}
+
+/* Hide some tree lines in compact mode for cleaner look */
+.app-container.compact-mode .nested-group::before {
+  display: none;
+}
+
+.app-container.compact-mode .nested-group .tree-node-header::before {
+  display: none;
+}
+
+/* More compact connection items */
+.app-container.compact-mode .connection-tree-item {
+  padding: 2px 6px;
+  font-size: 12px;
+  margin-left: 10px; /* Reduce from 20px */
+  margin-bottom: 1px;
+}
+
+/* Optimize group actions visibility */
+.app-container.compact-mode .group-actions {
+  gap: 2px;
+}
+
+.app-container.compact-mode .tree-node-header:hover .group-actions {
+  opacity: 1;
 }
 }

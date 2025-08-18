@@ -1,5 +1,7 @@
 let allConnections = [];
 let allGroups = [];
+let groupsTree = {}; // Nested group tree structure
+let expandedGroups = new Set(); // Track expanded/collapsed states
 let selectedConnection = null;
 let draggedConnection = null;
 
@@ -26,7 +28,7 @@ const AppState = {
     if (this.viewMode === 'compact') {
       container.classList.add('compact-mode');
       compactLayout.style.display = 'flex';
-      this.resizeWindow(400, 700);
+      this.resizeWindow(500, 700);
       this.populateCompactLayout();
       // Setup only compact mode menus
       setupCompactMenus();
@@ -40,11 +42,24 @@ const AppState = {
   },
   
   populateCompactLayout() {
-    // Copy connection tree to compact layout
-    const originalTree = document.getElementById('groups-tree');
+    // Render the tree structure in compact layout
     const compactTree = document.getElementById('groups-tree-compact');
-    if (originalTree && compactTree) {
-      compactTree.innerHTML = originalTree.innerHTML;
+    if (compactTree) {
+      compactTree.innerHTML = '';
+      
+      // Use the same rendering logic as the main tree
+      if (Object.keys(groupsTree).length > 0) {
+        renderNestedGroupTree(compactTree, groupsTree, 0);
+      } else {
+        // Fallback to flat group structure for backward compatibility
+        allGroups.forEach(groupName => {
+          const groupNode = createGroupNode(groupName, 0);
+          compactTree.appendChild(groupNode);
+        });
+      }
+      
+      // Render connections for all groups in compact mode
+      renderCompactConnections();
     }
   },
   
@@ -389,13 +404,18 @@ function initializeDragAndDrop() {
 
 async function loadGroups() {
   try {
-    const result = await window.electronAPI.ssh.getGroups();
+    // Load both flat groups (for backward compatibility) and tree structure
+    const [groupsResult, treeResult] = await Promise.all([
+      window.electronAPI.ssh.getGroups(),
+      window.electronAPI.ssh.getGroupsTree?.() || Promise.resolve({ success: true, data: {} })
+    ]);
     
-    if (result.success) {
-      allGroups = result.data;
+    if (groupsResult.success) {
+      allGroups = groupsResult.data;
+      groupsTree = treeResult.success ? treeResult.data : {};
       renderGroupTree();
     } else {
-      showError('Failed to load groups: ' + result.error);
+      showError('Failed to load groups: ' + groupsResult.error);
     }
   } catch (error) {
     showError('Failed to load groups: ' + error.message);
@@ -457,10 +477,127 @@ function renderGroupTree() {
   const container = document.getElementById('groups-tree');
   container.innerHTML = '';
   
-  allGroups.forEach(groupName => {
-    const groupNode = createGroupNode(groupName);
+  // If we have a nested tree structure, use it; otherwise fall back to flat groups
+  if (Object.keys(groupsTree).length > 0) {
+    renderNestedGroupTree(container, groupsTree, 0);
+  } else {
+    // Fallback to flat group structure for backward compatibility
+    allGroups.forEach(groupName => {
+      const groupNode = createGroupNode(groupName, 0);
+      container.appendChild(groupNode);
+    });
+  }
+}
+
+/**
+ * Render nested group tree recursively
+ */
+function renderNestedGroupTree(container, treeNodes, depth) {
+  Object.values(treeNodes).forEach(node => {
+    const groupNode = createNestedGroupNode(node, depth);
     container.appendChild(groupNode);
+    
+    // Recursively render children if they exist and group is expanded
+    if (Object.keys(node.children).length > 0) {
+      const childrenContainer = groupNode.querySelector('.tree-children');
+      if (expandedGroups.has(node.fullPath)) {
+        renderNestedGroupTree(childrenContainer, node.children, depth + 1);
+      }
+    }
   });
+}
+
+/**
+ * Create a nested group node with tree-style UI
+ */
+function createNestedGroupNode(groupNode, depth) {
+  const { name, fullPath, children } = groupNode;
+  const hasChildren = Object.keys(children).length > 0;
+  const isExpanded = expandedGroups.has(fullPath);
+  const connectionCount = allConnections.filter(c => c.group === fullPath).length;
+  const canDelete = connectionCount === 0 && !hasChildren && fullPath !== 'existing';
+  const isExistingGroup = fullPath === 'existing';
+  
+  // Create the tree node element
+  const treeNode = document.createElement('div');
+  treeNode.className = `tree-node group-node nested-group depth-${depth} ${isExpanded ? 'expanded' : 'collapsed'}`;
+  treeNode.dataset.group = fullPath;
+  treeNode.dataset.depth = depth;
+  
+  // Calculate indentation (reduced for compact mode)
+  const isCompactMode = document.querySelector('.app-container.compact-mode') !== null;
+  const baseIndent = isCompactMode ? 12 : 20; // Reduced spacing for compact mode
+  const indentPx = Math.max(8, depth * baseIndent + 8); // Minimum 8px padding
+  const groupIcon = getGroupIcon(name);
+  
+  treeNode.innerHTML = `
+    <div class="tree-node-header drop-zone ${isExistingGroup ? 'readonly-group' : ''}" style="padding-left: ${indentPx}px;">
+      <span class="tree-toggle ${hasChildren ? '' : 'no-children'}" data-group-path="${fullPath}">
+        ${hasChildren ? (isExpanded ? '▼' : '▶') : '•'}
+      </span>
+      <span class="group-icon">${groupIcon}</span>
+      <span class="group-name" title="${fullPath}">${name}${isExistingGroup ? ' (Read-Only)' : ''}</span>
+      <div class="group-actions">
+        ${!isExistingGroup ? `<button class="group-action-btn add-subgroup" title="Add Subgroup" onclick="showAddSubgroupForm('${fullPath}')">📁+</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn add-connection" title="Add Connection" onclick="showAddConnectionForm('${fullPath}')">🖥️+</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn edit" title="Rename Group" onclick="showEditGroupForm('${fullPath}')">✏️</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn delete" title="Delete Group" onclick="deleteGroup('${fullPath}')" ${!canDelete ? 'disabled' : ''}>🗑️</button>` : ''}
+      </div>
+    </div>
+    <div class="tree-children" data-group="${fullPath}" ${!isExpanded ? 'style="display: none;"' : ''}></div>
+  `;
+  
+  // Add click handler for toggle
+  const toggle = treeNode.querySelector('.tree-toggle');
+  if (hasChildren) {
+    toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleNestedGroup(fullPath, treeNode);
+    });
+  }
+  
+  return treeNode;
+}
+
+/**
+ * Toggle expanded/collapsed state for nested groups
+ */
+function toggleNestedGroup(groupPath, groupNode) {
+  const isExpanded = expandedGroups.has(groupPath);
+  const childrenContainer = groupNode.querySelector('.tree-children');
+  const toggle = groupNode.querySelector('.tree-toggle');
+  
+  if (isExpanded) {
+    // Collapse
+    expandedGroups.delete(groupPath);
+    childrenContainer.style.display = 'none';
+    childrenContainer.innerHTML = ''; // Clear children to save memory
+    toggle.textContent = '▶';
+    groupNode.classList.remove('expanded');
+    groupNode.classList.add('collapsed');
+  } else {
+    // Expand
+    expandedGroups.add(groupPath);
+    childrenContainer.style.display = 'block';
+    
+    // Find and render children
+    const pathSegments = groupPath.split('/');
+    let currentLevel = groupsTree;
+    for (const segment of pathSegments) {
+      if (currentLevel[segment]) {
+        currentLevel = currentLevel[segment].children;
+      }
+    }
+    
+    renderNestedGroupTree(childrenContainer, currentLevel, groupNode.dataset.depth ? parseInt(groupNode.dataset.depth) + 1 : 1);
+    
+    toggle.textContent = '▼';
+    groupNode.classList.remove('collapsed');
+    groupNode.classList.add('expanded');
+  }
+  
+  // Re-render connections for this group
+  renderConnectionsForGroup(groupPath);
 }
 
 function renderTreeConnections() {
@@ -492,7 +629,48 @@ function renderTreeConnections() {
   }
 }
 
-function createGroupNode(groupName) {
+/**
+ * Render connections for a specific group (used by nested tree)
+ */
+function renderConnectionsForGroup(groupPath) {
+  const container = document.querySelector(`[data-group="${groupPath}"].tree-children`);
+  if (!container) return;
+  
+  const connections = allConnections.filter(conn => conn.group === groupPath);
+  
+  // Clear existing connections (but keep nested groups)
+  const connectionElements = container.querySelectorAll('.connection-item');
+  connectionElements.forEach(el => el.remove());
+  
+  connections.forEach(connection => {
+    const connectionNode = createConnectionTreeItem(connection);
+    container.appendChild(connectionNode);
+  });
+}
+
+/**
+ * Render connections in compact mode for all groups
+ */
+function renderCompactConnections() {
+  // Render connections for all groups in the compact tree
+  allGroups.forEach(group => {
+    const container = document.querySelector(`#groups-tree-compact [data-group="${group}"].tree-children`);
+    if (!container) return;
+    
+    const connections = allConnections.filter(conn => conn.group === group);
+    
+    // Clear existing connections (but keep nested groups)
+    const connectionElements = container.querySelectorAll('.connection-item');
+    connectionElements.forEach(el => el.remove());
+    
+    connections.forEach(connection => {
+      const connectionNode = createConnectionTreeItem(connection);
+      container.appendChild(connectionNode);
+    });
+  });
+}
+
+function createGroupNode(groupName, depth = 0) {
   const groupNode = document.createElement('div');
   groupNode.className = 'tree-node group-node expanded';
   groupNode.dataset.group = groupName;
@@ -860,10 +1038,64 @@ function updateConnectionCount() {
   document.getElementById('connection-count').textContent = `${total} connection${total !== 1 ? 's' : ''}`;
 }
 
-function showAddConnectionForm() {
+function showAddConnectionForm(preSelectedGroup = null) {
   updateGroupDropdown();
+  
+  // Pre-select group if specified
+  if (preSelectedGroup) {
+    const groupSelect = document.getElementById('group');
+    if (groupSelect) {
+      groupSelect.value = preSelectedGroup;
+    }
+  }
+  
   document.getElementById('add-connection-modal').classList.add('active');
   document.getElementById('connection-name').focus();
+}
+
+function showAddSubgroupForm(parentGroupPath = '') {
+  // For now, use a simple prompt - in Phase 3 we can create a proper modal
+  const subgroupName = prompt(`Enter subgroup name${parentGroupPath ? ` (under ${parentGroupPath})` : ''}:`);
+  
+  if (subgroupName && subgroupName.trim()) {
+    const fullPath = parentGroupPath ? `${parentGroupPath}/${subgroupName.trim()}` : subgroupName.trim();
+    handleAddSubgroup(fullPath);
+  }
+}
+
+async function handleAddSubgroup(groupPath) {
+  try {
+    setStatus('Creating subgroup...');
+    const result = await window.electronAPI.ssh.createGroup(groupPath);
+    
+    if (result.success) {
+      setStatus(`Subgroup "${groupPath}" created successfully`);
+      await loadGroups();
+      await loadConnections();
+      
+      // Expand parent groups to show the new subgroup
+      expandGroupPath(groupPath);
+    } else {
+      setStatus(`Error: ${result.error}`);
+      showError(`Failed to create subgroup: ${result.error}`);
+    }
+  } catch (error) {
+    setStatus(`Error: ${error.message}`);
+    showError(`Failed to create subgroup: ${error.message}`);
+  }
+}
+
+function expandGroupPath(groupPath) {
+  const pathParts = groupPath.split('/');
+  
+  // Expand all parent paths
+  for (let i = 1; i <= pathParts.length; i++) {
+    const partialPath = pathParts.slice(0, i).join('/');
+    expandedGroups.add(partialPath);
+  }
+  
+  // Re-render to show expanded state
+  renderGroupTree();
 }
 
 function hideAddConnectionForm() {
@@ -1436,6 +1668,7 @@ async function confirmMigration(connectionName) {
 // Global function exports for HTML onclick handlers
 window.showAddConnectionForm = showAddConnectionForm;
 window.hideAddConnectionForm = hideAddConnectionForm;
+window.showAddSubgroupForm = showAddSubgroupForm;
 window.showAddGroupForm = showAddGroupForm;
 window.hideAddGroupForm = hideAddGroupForm;
 window.showEditGroupForm = showEditGroupForm;

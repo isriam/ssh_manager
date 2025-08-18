@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     testConnection: (name, group) => ipcRenderer.invoke('ssh:test-connection', name, group),
     getTemplates: () => ipcRenderer.invoke('ssh:get-templates'),
     getGroups: () => ipcRenderer.invoke('ssh:get-groups'),
+    getGroupsTree: () => ipcRenderer.invoke('ssh:get-groups-tree'),
     createGroup: (groupName) => ipcRenderer.invoke('ssh:create-group', groupName),
     renameGroup: (oldName, newName) => ipcRenderer.invoke('ssh:rename-group', oldName, newName),
     deleteGroup: (groupName) => ipcRenderer.invoke('ssh:delete-group', groupName),

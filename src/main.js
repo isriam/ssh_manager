@@ -9,7 +9,7 @@ function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    minWidth: 400,
+    minWidth: 350,
     minHeight: 500,
     webPreferences: {
       nodeIntegration: false,
@@ -121,6 +121,15 @@ ipcMain.handle('ssh:get-groups', async () => {
   try {
     const groups = await sshManager.getGroups();
     return { success: true, data: groups };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ssh:get-groups-tree', async () => {
+  try {
+    const groupsTree = await sshManager.getGroupsTree();
+    return { success: true, data: groupsTree };
   } catch (error) {
     return { success: false, error: error.message };
   }
