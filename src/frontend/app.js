@@ -21,39 +21,64 @@ const AppState = {
   
   updateLayout() {
     const container = document.querySelector('.app-container');
-    const compactActions = document.getElementById('compact-actions');
+    const compactLayout = document.getElementById('compact-layout');
     
     if (this.viewMode === 'compact') {
       container.classList.add('compact-mode');
-      compactActions.style.display = 'block';
+      compactLayout.style.display = 'flex';
       this.resizeWindow(400, 600);
+      this.populateCompactLayout();
     } else {
       container.classList.remove('compact-mode');
-      compactActions.style.display = 'none';
+      compactLayout.style.display = 'none';
       this.resizeWindow(1200, 800);
     }
   },
   
+  populateCompactLayout() {
+    // Copy connection tree to compact layout
+    const originalTree = document.getElementById('groups-tree');
+    const compactTree = document.getElementById('groups-tree-compact');
+    if (originalTree && compactTree) {
+      compactTree.innerHTML = originalTree.innerHTML;
+    }
+  },
+  
   updateCompactActions() {
-    const connectBtn = document.getElementById('compact-connect-btn');
-    const detailsBtn = document.getElementById('compact-details-btn');
-    const editBtn = document.getElementById('compact-edit-btn');
-    const infoElement = document.querySelector('.compact-connection-text');
+    // Handle both original and embedded compact buttons
+    const connectBtns = [
+      document.getElementById('compact-connect-btn'),
+      document.getElementById('compact-connect-btn-embedded')
+    ];
+    const detailsBtns = [
+      document.getElementById('compact-details-btn'), 
+      document.getElementById('compact-details-btn-embedded')
+    ];
+    const editBtns = [
+      document.getElementById('compact-edit-btn'),
+      document.getElementById('compact-edit-btn-embedded')
+    ];
+    const infoElements = document.querySelectorAll('.compact-connection-text');
     
     if (this.selectedConnection && this.viewMode === 'compact') {
-      connectBtn.disabled = false;
-      detailsBtn.disabled = false;
-      editBtn.disabled = false;
+      connectBtns.forEach(btn => btn && (btn.disabled = false));
+      detailsBtns.forEach(btn => btn && (btn.disabled = false));
+      editBtns.forEach(btn => btn && (btn.disabled = false));
       
-      infoElement.textContent = `${this.selectedConnection.user}@${this.selectedConnection.host}:${this.selectedConnection.port}`;
-      infoElement.classList.add('has-selection');
+      const displayText = `${this.selectedConnection.user}@${this.selectedConnection.host}:${this.selectedConnection.port}`;
+      infoElements.forEach(el => {
+        el.textContent = displayText;
+        el.classList.add('has-selection');
+      });
     } else {
-      connectBtn.disabled = true;
-      detailsBtn.disabled = true;
-      editBtn.disabled = true;
+      connectBtns.forEach(btn => btn && (btn.disabled = true));
+      detailsBtns.forEach(btn => btn && (btn.disabled = true));
+      editBtns.forEach(btn => btn && (btn.disabled = true));
       
-      infoElement.textContent = 'Select a connection';
-      infoElement.classList.remove('has-selection');
+      infoElements.forEach(el => {
+        el.textContent = 'Select a connection';
+        el.classList.remove('has-selection');
+      });
     }
   },
   
@@ -107,26 +132,36 @@ function initializeEventListeners() {
   // Menu system event listeners
   initializeMenuSystem();
   
-  // Compact mode button listeners
-  document.getElementById('compact-connect-btn').addEventListener('click', () => {
+  // Compact mode button listeners (both original and embedded)
+  const compactConnectHandler = () => {
     if (AppState.selectedConnection) {
       connectToServer(AppState.selectedConnection.name, AppState.selectedConnection.group);
     }
-  });
+  };
   
-  document.getElementById('compact-details-btn').addEventListener('click', () => {
+  const compactDetailsHandler = () => {
     AppState.setViewMode('full');
     if (AppState.selectedConnection) {
       selectConnection(AppState.selectedConnection.name, AppState.selectedConnection.group);
     }
-  });
+  };
   
-  document.getElementById('compact-edit-btn').addEventListener('click', () => {
+  const compactEditHandler = () => {
     AppState.setViewMode('full');
     if (AppState.selectedConnection) {
       editConnection(AppState.selectedConnection.name, AppState.selectedConnection.group);
     }
-  });
+  };
+  
+  // Add listeners to both sets of buttons
+  document.getElementById('compact-connect-btn')?.addEventListener('click', compactConnectHandler);
+  document.getElementById('compact-connect-btn-embedded')?.addEventListener('click', compactConnectHandler);
+  
+  document.getElementById('compact-details-btn')?.addEventListener('click', compactDetailsHandler);
+  document.getElementById('compact-details-btn-embedded')?.addEventListener('click', compactDetailsHandler);
+  
+  document.getElementById('compact-edit-btn')?.addEventListener('click', compactEditHandler);
+  document.getElementById('compact-edit-btn-embedded')?.addEventListener('click', compactEditHandler);
   
   // Phase 2: Dynamic port forward management
   document.getElementById('add-local-forward').addEventListener('click', addLocalForwardRow);
@@ -140,7 +175,7 @@ async function refreshAll() {
 
 // Menu System Functions
 function initializeMenuSystem() {
-  // Menu dropdown toggle functionality
+  // Menu dropdown toggle functionality (handles both regular and compact menus)
   document.querySelectorAll('.menu-item').forEach(menuItem => {
     const menuLabel = menuItem.querySelector('.menu-label');
     const dropdown = menuItem.querySelector('.dropdown-menu');

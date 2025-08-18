@@ -8,6 +8,92 @@
 </head>
 <body>
   <div class="app-container">
+    <!-- Compact Mode Layout (outside normal flex structure) -->
+    <div class="compact-layout" id="compact-layout" style="display: none;">
+      <header class="app-header">
+        <h1>SSH Manager</h1>
+        <nav class="menu-bar">
+          <div class="menu-item" id="file-menu-compact">
+            <span class="menu-label">File</span>
+            <div class="dropdown-menu" id="file-dropdown-compact">
+              <div class="menu-option" data-action="add-connection" data-shortcut="Ctrl+N">
+                <span>Add Connection</span>
+                <span class="shortcut">Ctrl+N</span>
+              </div>
+              <div class="menu-separator"></div>
+              <div class="menu-option" data-action="export-connections" data-shortcut="Ctrl+E">
+                <span>Export Connections</span>
+                <span class="shortcut">Ctrl+E</span>
+              </div>
+              <div class="menu-option" data-action="import-connections" data-shortcut="Ctrl+O">
+                <span>Import Connections</span>
+                <span class="shortcut">Ctrl+O</span>
+              </div>
+              <div class="menu-separator"></div>
+              <div class="menu-option" data-action="settings">
+                <span>Settings</span>
+              </div>
+            </div>
+          </div>
+          <div class="menu-item" id="view-menu-compact">
+            <span class="menu-label">View</span>
+            <div class="dropdown-menu" id="view-dropdown-compact">
+              <div class="menu-option" data-action="compact-mode" data-shortcut="Ctrl+1">
+                <span>Compact Mode</span>
+                <span class="shortcut">Ctrl+1</span>
+              </div>
+              <div class="menu-option" data-action="full-mode" data-shortcut="Ctrl+2">
+                <span>Full Details</span>
+                <span class="shortcut">Ctrl+2</span>
+              </div>
+              <div class="menu-separator"></div>
+              <div class="menu-option" data-action="refresh" data-shortcut="Ctrl+R">
+                <span>Refresh</span>
+                <span class="shortcut">Ctrl+R</span>
+              </div>
+            </div>
+          </div>
+        </nav>
+        <div class="header-actions">
+          <button id="add-connection-btn" class="btn btn-primary">Add Connection</button>
+        </div>
+      </header>
+      
+      <div class="compact-content">
+        <div class="compact-sidebar">
+          <div class="sidebar-section">
+            <div class="section-header">
+              <h3>SSH Connections</h3>
+              <button class="btn-icon" id="add-group-btn-compact" title="Add Group">➕</button>
+            </div>
+            <div class="tree-container" id="groups-tree-compact">
+              <!-- Groups will be dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Compact Mode Action Buttons -->
+          <div class="compact-actions" id="compact-actions-embedded">
+            <div class="compact-buttons">
+              <button class="compact-btn compact-btn-primary" id="compact-connect-btn-embedded">
+                🚀 Connect
+              </button>
+              <button class="compact-btn compact-btn-secondary" id="compact-details-btn-embedded">
+                📄 Show Full Details
+              </button>
+              <button class="compact-btn compact-btn-secondary" id="compact-edit-btn-embedded">
+                ✏️ Edit
+              </button>
+            </div>
+            <div class="compact-info" id="compact-info-embedded">
+              <div class="compact-connection-details">
+                <span class="compact-connection-text">Select a connection</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <header class="app-header">
       <h1>SSH Manager</h1>
       <nav class="menu-bar">
