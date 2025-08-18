@@ -28,12 +28,14 @@ const AppState = {
       compactLayout.style.display = 'flex';
       this.resizeWindow(400, 600);
       this.populateCompactLayout();
+      // Setup only compact mode menus
+      setupCompactMenus();
     } else {
       container.classList.remove('compact-mode');
       compactLayout.style.display = 'none';
       this.resizeWindow(1200, 800);
-      // Reinitialize menu system when going back to full mode
-      setupMenuDropdowns();
+      // Setup only full mode menus
+      setupFullModeMenus();
     }
   },
   
@@ -44,9 +46,6 @@ const AppState = {
     if (originalTree && compactTree) {
       compactTree.innerHTML = originalTree.innerHTML;
     }
-    
-    // Reinitialize menu system for compact layout
-    setupMenuDropdowns();
   },
   
   updateCompactActions() {
@@ -121,7 +120,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Ensure menu system is initialized after everything is loaded
   setTimeout(() => {
-    setupMenuDropdowns();
+    if (AppState.viewMode === 'compact') {
+      setupCompactMenus();
+    } else {
+      setupFullModeMenus();
+    }
   }, 100);
 });
 
@@ -184,13 +187,24 @@ async function refreshAll() {
 
 // Menu System Functions
 function initializeMenuSystem() {
-  // Initialize menus after DOM is ready - will be called again when compact layout is populated
-  setupMenuDropdowns();
+  // Initialize menus after DOM is ready - start with full mode
+  setupFullModeMenus();
 }
 
-function setupMenuDropdowns() {
-  // Menu dropdown toggle functionality (handles both regular and compact menus)
-  document.querySelectorAll('.menu-item').forEach(menuItem => {
+function setupFullModeMenus() {
+  // Setup menus only for full mode (not in compact layout)
+  const fullModeMenus = document.querySelectorAll('.app-container > .app-header .menu-item');
+  setupMenusForElements(fullModeMenus);
+}
+
+function setupCompactMenus() {
+  // Setup menus only for compact mode (in compact layout)
+  const compactModeMenus = document.querySelectorAll('.compact-layout .menu-item');
+  setupMenusForElements(compactModeMenus);
+}
+
+function setupMenusForElements(menuItems) {
+  menuItems.forEach((menuItem, index) => {
     const menuLabel = menuItem.querySelector('.menu-label');
     const dropdown = menuItem.querySelector('.dropdown-menu');
     
@@ -223,28 +237,31 @@ function setupMenuDropdowns() {
     menuLabel.addEventListener('click', handleMenuClick);
   });
   
-  // Menu option click handlers (remove existing first to avoid duplicates)
-  document.querySelectorAll('.menu-option').forEach(option => {
-    // Create a unique handler for this specific option
-    const handleMenuOptionClick = (e) => {
-      const action = option.dataset.action;
-      handleMenuAction(action);
+  // Menu option click handlers within these specific menu items
+  menuItems.forEach(menuItem => {
+    const menuOptions = menuItem.querySelectorAll('.menu-option');
+    menuOptions.forEach(option => {
+      // Create a unique handler for this specific option
+      const handleMenuOptionClick = (e) => {
+        const action = option.dataset.action;
+        handleMenuAction(action);
+        
+        // Close all dropdowns
+        document.querySelectorAll('.dropdown-menu').forEach(menu => {
+          menu.classList.remove('show');
+          menu.parentElement.classList.remove('active');
+        });
+      };
       
-      // Close all dropdowns
-      document.querySelectorAll('.dropdown-menu').forEach(menu => {
-        menu.classList.remove('show');
-        menu.parentElement.classList.remove('active');
-      });
-    };
-    
-    // Remove existing listener if present - use a stored reference
-    if (option._menuClickHandler) {
-      option.removeEventListener('click', option._menuClickHandler);
-    }
-    
-    // Store reference and add new listener
-    option._menuClickHandler = handleMenuOptionClick;
-    option.addEventListener('click', handleMenuOptionClick);
+      // Remove existing listener if present - use a stored reference
+      if (option._menuClickHandler) {
+        option.removeEventListener('click', option._menuClickHandler);
+      }
+      
+      // Store reference and add new listener
+      option._menuClickHandler = handleMenuOptionClick;
+      option.addEventListener('click', handleMenuOptionClick);
+    });
   });
   
   // Close dropdowns when clicking outside
