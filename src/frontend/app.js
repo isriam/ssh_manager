@@ -196,11 +196,8 @@ function setupMenuDropdowns() {
     
     if (!menuLabel || !dropdown) return;
     
-    // Remove existing listeners to avoid duplicates
-    menuLabel.removeEventListener('click', handleMenuClick);
-    menuLabel.addEventListener('click', handleMenuClick);
-    
-    function handleMenuClick(e) {
+    // Create a unique handler for this specific menu item
+    const handleMenuClick = (e) => {
       e.stopPropagation();
       
       // Close other dropdowns
@@ -214,26 +211,41 @@ function setupMenuDropdowns() {
       // Toggle current dropdown
       dropdown.classList.toggle('show');
       menuItem.classList.toggle('active');
+    };
+    
+    // Remove existing listener if present - use a stored reference
+    if (menuLabel._menuClickHandler) {
+      menuLabel.removeEventListener('click', menuLabel._menuClickHandler);
     }
+    
+    // Store reference and add new listener
+    menuLabel._menuClickHandler = handleMenuClick;
+    menuLabel.addEventListener('click', handleMenuClick);
   });
   
   // Menu option click handlers (remove existing first to avoid duplicates)
   document.querySelectorAll('.menu-option').forEach(option => {
-    // Remove existing listener if present
-    option.removeEventListener('click', handleMenuOptionClick);
+    // Create a unique handler for this specific option
+    const handleMenuOptionClick = (e) => {
+      const action = option.dataset.action;
+      handleMenuAction(action);
+      
+      // Close all dropdowns
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        menu.classList.remove('show');
+        menu.parentElement.classList.remove('active');
+      });
+    };
+    
+    // Remove existing listener if present - use a stored reference
+    if (option._menuClickHandler) {
+      option.removeEventListener('click', option._menuClickHandler);
+    }
+    
+    // Store reference and add new listener
+    option._menuClickHandler = handleMenuOptionClick;
     option.addEventListener('click', handleMenuOptionClick);
   });
-  
-  function handleMenuOptionClick(e) {
-    const action = this.dataset.action;
-    handleMenuAction(action);
-    
-    // Close all dropdowns
-    document.querySelectorAll('.dropdown-menu').forEach(menu => {
-      menu.classList.remove('show');
-      menu.parentElement.classList.remove('active');
-    });
-  }
   
   // Close dropdowns when clicking outside
   document.addEventListener('click', () => {
