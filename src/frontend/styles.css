@@ -444,7 +444,6 @@ body {
   background: white;
   border-radius: 8px;
   border: 1px solid #ddd;
-  height: 100%;
   min-height: 400px;
   display: flex;
   flex-direction: column;
@@ -617,14 +616,6 @@ body {
   display: flex;
 }
 
-.modal-content {
-  background: white;
-  border-radius: 8px;
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-}
 
 .modal-header {
   display: flex;
@@ -760,8 +751,10 @@ body {
   background: white;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  width: 400px;
+  width: 500px;
   max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .modal-header {
