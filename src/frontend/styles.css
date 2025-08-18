@@ -991,10 +991,18 @@ select[title]:focus {
 }
 
 /* Compact Mode Styles */
+body:has(.app-container.compact-mode) {
+  width: 400px !important;
+  overflow-x: hidden;
+  background: white;
+}
+
 .app-container.compact-mode {
-  width: 400px;
-  min-width: 400px;
-  max-width: 400px;
+  width: 400px !important;
+  min-width: 400px !important;
+  max-width: 400px !important;
+  overflow: hidden;
+  background: white;
 }
 
 .app-container.compact-mode .main-content {

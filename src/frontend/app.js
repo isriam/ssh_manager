@@ -26,7 +26,7 @@ const AppState = {
     if (this.viewMode === 'compact') {
       container.classList.add('compact-mode');
       compactActions.style.display = 'block';
-      this.resizeWindow(450, 650);
+      this.resizeWindow(400, 600);
     } else {
       container.classList.remove('compact-mode');
       compactActions.style.display = 'none';
@@ -60,6 +60,9 @@ const AppState = {
   resizeWindow(width, height) {
     if (window.electronAPI && window.electronAPI.window) {
       window.electronAPI.window.resize(width, height);
+    } else {
+      // Fallback for web/development mode
+      console.log(`Would resize to ${width}x${height}`);
     }
   },
   
