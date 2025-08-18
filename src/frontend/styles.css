@@ -1002,15 +1002,18 @@ select[title]:focus {
 }
 
 .app-container.compact-mode .app-content {
-  display: block; /* Override flex layout */
+  display: block !important; /* Override flex layout */
+  overflow: hidden;
 }
 
 .app-container.compact-mode .sidebar {
-  width: 100%;
+  width: 100% !important;
   border-right: none;
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: calc(100vh - 60px); /* Account for header height */
+  margin: 0;
+  padding: 16px;
 }
 
 
