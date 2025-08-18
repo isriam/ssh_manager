@@ -13,6 +13,20 @@ Host {{name}}
     User {{user}}
     Port {{port}}
     IdentityFile {{key_file}}
+    
+    # Phase 1: Essential Connection Settings
+    ServerAliveInterval {{server_alive_interval}}
+    ServerAliveCountMax {{server_alive_count_max}}
+    ConnectTimeout {{connect_timeout}}
+    Compression {{compression}}
+    StrictHostKeyChecking {{strict_host_key_checking}}
+    
+    # Phase 2: Developer Features
+    ControlMaster {{control_master}}
+    ControlPath {{control_path}}
+    ControlPersist {{control_persist}}
+    ForwardX11 {{forward_x11}}
+    ForwardAgent {{forward_agent}}
 `
       },
       'jump-host': {
@@ -25,6 +39,20 @@ Host {{name}}
     Port {{port}}
     ProxyJump {{jump_host}}
     IdentityFile {{key_file}}
+    
+    # Phase 1: Essential Connection Settings
+    ServerAliveInterval {{server_alive_interval}}
+    ServerAliveCountMax {{server_alive_count_max}}
+    ConnectTimeout {{connect_timeout}}
+    Compression {{compression}}
+    StrictHostKeyChecking {{strict_host_key_checking}}
+    
+    # Phase 2: Developer Features
+    ControlMaster {{control_master}}
+    ControlPath {{control_path}}
+    ControlPersist {{control_persist}}
+    ForwardX11 {{forward_x11}}
+    ForwardAgent {{forward_agent}}
 `
       },
       'port-forward': {
@@ -37,6 +65,20 @@ Host {{name}}
     Port {{port}}
     LocalForward {{local_port}} {{remote_host}}:{{remote_port}}
     IdentityFile {{key_file}}
+    
+    # Phase 1: Essential Connection Settings
+    ServerAliveInterval {{server_alive_interval}}
+    ServerAliveCountMax {{server_alive_count_max}}
+    ConnectTimeout {{connect_timeout}}
+    Compression {{compression}}
+    StrictHostKeyChecking {{strict_host_key_checking}}
+    
+    # Phase 2: Developer Features
+    ControlMaster {{control_master}}
+    ControlPath {{control_path}}
+    ControlPersist {{control_persist}}
+    ForwardX11 {{forward_x11}}
+    ForwardAgent {{forward_agent}}
 `
       },
       'tunnel': {
@@ -49,6 +91,20 @@ Host {{name}}
     Port {{port}}
     DynamicForward {{socks_port}}
     IdentityFile {{key_file}}
+    
+    # Phase 1: Essential Connection Settings
+    ServerAliveInterval {{server_alive_interval}}
+    ServerAliveCountMax {{server_alive_count_max}}
+    ConnectTimeout {{connect_timeout}}
+    Compression {{compression}}
+    StrictHostKeyChecking {{strict_host_key_checking}}
+    
+    # Phase 2: Developer Features
+    ControlMaster {{control_master}}
+    ControlPath {{control_path}}
+    ControlPersist {{control_persist}}
+    ForwardX11 {{forward_x11}}
+    ForwardAgent {{forward_agent}}
 `
       },
       'aws-ec2': {
@@ -62,6 +118,19 @@ Host {{name}}
     IdentityFile {{key_file}}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
+    
+    # Phase 1: Essential Connection Settings
+    ServerAliveInterval {{server_alive_interval}}
+    ServerAliveCountMax {{server_alive_count_max}}
+    ConnectTimeout {{connect_timeout}}
+    Compression {{compression}}
+    
+    # Phase 2: Developer Features
+    ControlMaster {{control_master}}
+    ControlPath {{control_path}}
+    ControlPersist {{control_persist}}
+    ForwardX11 {{forward_x11}}
+    ForwardAgent {{forward_agent}}
 `
       },
       'development': {
@@ -76,6 +145,48 @@ Host {{name}}
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
     ForwardAgent yes
+    
+    # Phase 1: Essential Connection Settings
+    ServerAliveInterval {{server_alive_interval}}
+    ServerAliveCountMax {{server_alive_count_max}}
+    ConnectTimeout {{connect_timeout}}
+    Compression {{compression}}
+    
+    # Phase 2: Developer Features
+    ControlMaster {{control_master}}
+    ControlPath {{control_path}}
+    ControlPersist {{control_persist}}
+    ForwardX11 {{forward_x11}}
+`
+      },
+      'developer': {
+        name: 'Developer Workstation',
+        description: 'Full developer setup with multiplexing, forwarding, and tunneling',
+        content: `# Developer Workstation
+Host {{name}}
+    HostName {{host}}
+    User {{user}}
+    Port {{port}}
+    IdentityFile {{key_file}}
+    
+    # Phase 1: Essential Connection Settings
+    ServerAliveInterval {{server_alive_interval}}
+    ServerAliveCountMax {{server_alive_count_max}}
+    ConnectTimeout {{connect_timeout}}
+    Compression {{compression}}
+    StrictHostKeyChecking {{strict_host_key_checking}}
+    
+    # Phase 2: Full Developer Features
+    ControlMaster {{control_master}}
+    ControlPath {{control_path}}
+    ControlPersist {{control_persist}}
+    ForwardX11 {{forward_x11}}
+    ForwardAgent {{forward_agent}}
+    
+    # Common developer port forwards
+    LocalForward 3000 localhost:3000
+    LocalForward 8080 localhost:8080
+    LocalForward 5432 localhost:5432
 `
       }
     };
@@ -160,12 +271,48 @@ Host {{name}}
 
     const allVariables = { ...defaultVariables, ...variables };
 
+    // Handle standard variable replacement
     for (const [key, value] of Object.entries(allVariables)) {
       const placeholder = `{{${key}}}`;
-      content = content.replace(new RegExp(placeholder, 'g'), value);
+      content = content.replace(new RegExp(placeholder, 'g'), value || '');
     }
 
+    // Phase 2: Handle dynamic content insertion
+    content = this.handleDynamicContent(content, allVariables);
+
     return content;
+  }
+
+  handleDynamicContent(content, variables) {
+    let result = content;
+
+    // Add DynamicForward if specified
+    if (variables.dynamic_forward && variables.dynamic_forward !== '') {
+      const dynamicForwardLine = `\n    DynamicForward ${variables.dynamic_forward}`;
+      result = result.replace(
+        /(\n    # Phase 2: Developer Features[\s\S]*?ForwardAgent [^\n]+)/,
+        `$1${dynamicForwardLine}`
+      );
+    }
+
+    // Add LocalForward and RemoteForward lines if specified
+    if (variables.local_forwards && variables.local_forwards !== '') {
+      const localForwardsSection = `\n    ${variables.local_forwards}`;
+      result = result.replace(
+        /(\n    # Phase 2: Developer Features[\s\S]*?ForwardAgent [^\n]+)/,
+        `$1${localForwardsSection}`
+      );
+    }
+
+    if (variables.remote_forwards && variables.remote_forwards !== '') {
+      const remoteForwardsSection = `\n    ${variables.remote_forwards}`;
+      result = result.replace(
+        /(\n    # Phase 2: Developer Features[\s\S]*?ForwardAgent [^\n]+)/,
+        `$1${remoteForwardsSection}`
+      );
+    }
+
+    return result;
   }
 
   async saveCustomTemplate(name, content, description = 'Custom template') {

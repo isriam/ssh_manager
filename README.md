@@ -14,8 +14,9 @@ SSH Manager simplifies the management of multiple SSH connections by providing:
 ## Target Users
 
 - Network engineers managing multiple servers
-- Developers with various deployment environments
+- Developers needing X11 forwarding and port tunneling
 - System administrators with complex SSH setups
+- Users requiring SOCKS proxy and connection multiplexing
 - Anyone who frequently connects to remote systems
 
 ## Installation
@@ -37,9 +38,11 @@ ssh-manager create-shortcut  # Creates desktop shortcut
 
 - **GUI Interface**: Electron-based desktop application
 - **Visual Forms**: Add/edit SSH connections without touching config files
-- **Connection Management**: One-click SSH launching
+- **Connection Management**: One-click SSH launching with advanced settings
+- **Developer Features**: Connection multiplexing, X11/agent forwarding, port forwarding
+- **SOCKS Proxy**: Dynamic port forwarding for secure tunneling
+- **Templates**: Pre-built configurations (Basic Server, Developer Workstation, AWS EC2, Jump Host)
 - **SSH Key Management**: Generate, import, and assign SSH keys
-- **Templates**: Pre-built configurations for common scenarios
 - **Import/Export**: Backup and restore configurations
 - **Connection Testing**: Verify SSH connectivity
 - **Cross-Platform Distribution**: macOS, Windows, and Linux packages
@@ -141,6 +144,6 @@ SSH Manager is a defensive security tool focused on:
 
 ---
 
-**Version**: 0.1.2  
+**Version**: 0.1.3  
 **Repository**: https://github.com/isriam/ssh_manager  
 **npm Package**: `ssh-manager`

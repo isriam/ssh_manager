@@ -23,10 +23,13 @@ function initializeEventListeners() {
   document.getElementById('edit-group-form').addEventListener('submit', handleEditGroup);
 
   document.getElementById('backup-btn').addEventListener('click', backupConfigs);
-  document.getElementById('import-btn').addEventListener('click', importConfigs);
 
   // Add template change listener for edit form
   document.getElementById('edit-template').addEventListener('change', handleEditTemplateChange);
+  
+  // Phase 2: Dynamic port forward management
+  document.getElementById('add-local-forward').addEventListener('click', addLocalForwardRow);
+  document.getElementById('add-edit-local-forward').addEventListener('click', addEditLocalForwardRow);
 }
 
 async function refreshAll() {
@@ -299,6 +302,69 @@ function showConnectionDetails(connection) {
       </div>
       
       <div class="detail-section">
+        <h4>Connection Settings</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Connect Timeout</div>
+            <div class="detail-value">${connection.connectTimeout || '10'} seconds</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Keep-Alive Interval</div>
+            <div class="detail-value">${connection.serverAliveInterval || '60'} seconds</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Keep-Alive Max Count</div>
+            <div class="detail-value">${connection.serverAliveCountMax || '3'}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Compression</div>
+            <div class="detail-value">${connection.compression || 'yes'}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Host Key Checking</div>
+            <div class="detail-value">${connection.strictHostKeyChecking || 'ask'}</div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="detail-section">
+        <h4>Developer Features</h4>
+        <div class="detail-grid">
+          <div class="detail-item">
+            <div class="detail-label">Connection Multiplexing</div>
+            <div class="detail-value">${connection.controlMaster || 'auto'}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Persist Duration</div>
+            <div class="detail-value">${connection.controlPersist || '10m'}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">X11 Forwarding</div>
+            <div class="detail-value">${connection.forwardX11 || 'no'}</div>
+          </div>
+          <div class="detail-item">
+            <div class="detail-label">Agent Forwarding</div>
+            <div class="detail-value">${connection.forwardAgent || 'no'}</div>
+          </div>
+          ${connection.dynamicForward ? `
+          <div class="detail-item">
+            <div class="detail-label">SOCKS Proxy Port</div>
+            <div class="detail-value">${connection.dynamicForward}</div>
+          </div>
+          ` : ''}
+        </div>
+        
+        ${connection.localForwards && connection.localForwards.length > 0 ? `
+        <h5>Port Forwards</h5>
+        <div class="port-forwards-list">
+          ${connection.localForwards.map(f => 
+            `<div class="port-forward-item">Local ${f.localPort} → ${f.remoteHost}:${f.remotePort}</div>`
+          ).join('')}
+        </div>
+        ` : ''}
+      </div>
+      
+      <div class="detail-section">
         <h4>Quick Actions</h4>
         <div class="detail-actions">
           <button class="btn btn-primary" onclick="connectToServer('${connection.name}', '${connection.group}')">
@@ -475,6 +541,34 @@ async function handleAddConnection(e) {
   e.preventDefault();
   
   const formData = new FormData(e.target);
+  
+  // Validate Phase 1 fields
+  const connectTimeout = parseInt(formData.get('connectTimeout'));
+  const serverAliveInterval = parseInt(formData.get('serverAliveInterval'));
+  const serverAliveCountMax = parseInt(formData.get('serverAliveCountMax'));
+  
+  if (connectTimeout < 1 || connectTimeout > 300) {
+    showError('Connect timeout must be between 1 and 300 seconds');
+    return;
+  }
+  
+  if (serverAliveInterval < 0 || serverAliveInterval > 3600) {
+    showError('Keep-alive interval must be between 0 and 3600 seconds');
+    return;
+  }
+  
+  if (serverAliveCountMax < 1 || serverAliveCountMax > 10) {
+    showError('Keep-alive max count must be between 1 and 10');
+    return;
+  }
+
+  // Validate Phase 2 fields
+  const phase2Errors = validatePhase2Fields(formData);
+  if (phase2Errors.length > 0) {
+    showError(phase2Errors.join('; '));
+    return;
+  }
+
   const options = {
     name: formData.get('name'),
     host: formData.get('host'),
@@ -482,7 +576,20 @@ async function handleAddConnection(e) {
     port: formData.get('port'),
     group: formData.get('group'),
     template: formData.get('template'),
-    keyFile: formData.get('keyFile')
+    keyFile: formData.get('keyFile'),
+    // Phase 1: Connection Settings
+    connectTimeout: formData.get('connectTimeout'),
+    serverAliveInterval: formData.get('serverAliveInterval'),
+    serverAliveCountMax: formData.get('serverAliveCountMax'),
+    compression: formData.get('compression'),
+    strictHostKeyChecking: formData.get('strictHostKeyChecking'),
+    // Phase 2: Developer Features
+    controlMaster: formData.get('controlMaster'),
+    controlPersist: formData.get('controlPersist'),
+    forwardX11: formData.get('forwardX11'),
+    forwardAgent: formData.get('forwardAgent'),
+    dynamicForward: formData.get('dynamicForward'),
+    localForwards: getLocalForwards()
   };
   
   try {
@@ -599,6 +706,23 @@ async function editConnection(name, group) {
     document.getElementById('edit-user').value = connection.user;
     document.getElementById('edit-port').value = connection.port;
     document.getElementById('edit-key-file').value = connection.keyFile || '~/.ssh/id_ed25519';
+    
+    // Populate Phase 1 settings
+    document.getElementById('edit-connect-timeout').value = connection.connectTimeout || '10';
+    document.getElementById('edit-server-alive-interval').value = connection.serverAliveInterval || '60';
+    document.getElementById('edit-server-alive-count').value = connection.serverAliveCountMax || '3';
+    document.getElementById('edit-compression').value = connection.compression || 'yes';
+    document.getElementById('edit-strict-host-checking').value = connection.strictHostKeyChecking || 'ask';
+    
+    // Populate Phase 2 settings
+    document.getElementById('edit-control-master').value = connection.controlMaster || 'auto';
+    document.getElementById('edit-control-persist').value = connection.controlPersist || '10m';
+    document.getElementById('edit-forward-x11').value = connection.forwardX11 || 'no';
+    document.getElementById('edit-forward-agent').value = connection.forwardAgent || 'no';
+    document.getElementById('edit-dynamic-forward').value = connection.dynamicForward || '';
+    
+    // Populate existing port forwards
+    populateEditLocalForwards(connection.localForwards || []);
 
     // Update group dropdown and select current group
     updateEditGroupDropdown();
@@ -688,7 +812,20 @@ async function handleEditConnection(e) {
     group: formData.get('group'),
     template: formData.get('template'),
     keyFile: formData.get('keyFile'),
-    jumpHost: formData.get('jumpHost')
+    jumpHost: formData.get('jumpHost'),
+    // Phase 1: Connection Settings
+    connectTimeout: formData.get('connectTimeout'),
+    serverAliveInterval: formData.get('serverAliveInterval'),
+    serverAliveCountMax: formData.get('serverAliveCountMax'),
+    compression: formData.get('compression'),
+    strictHostKeyChecking: formData.get('strictHostKeyChecking'),
+    // Phase 2: Developer Features
+    controlMaster: formData.get('controlMaster'),
+    controlPersist: formData.get('controlPersist'),
+    forwardX11: formData.get('forwardX11'),
+    forwardAgent: formData.get('forwardAgent'),
+    dynamicForward: formData.get('dynamicForward'),
+    localForwards: getEditLocalForwards()
   };
   
   try {
@@ -969,6 +1106,150 @@ window.showAddGroupForm = showAddGroupForm;
 window.hideAddGroupForm = hideAddGroupForm;
 window.showEditGroupForm = showEditGroupForm;
 window.hideEditGroupForm = hideEditGroupForm;
+// Phase 2: Helper functions for developer features
+function validatePhase2Fields(formData) {
+  const errors = [];
+  
+  // Validate ControlPersist format (should be like "10m", "1h", "30s")
+  const controlPersist = formData.get('controlPersist');
+  if (controlPersist && !controlPersist.match(/^\d+[smh]$/)) {
+    errors.push('Control persist must be in format like "10m", "1h", or "30s"');
+  }
+  
+  // Validate dynamic forward port
+  const dynamicForward = formData.get('dynamicForward');
+  if (dynamicForward && (dynamicForward < 1 || dynamicForward > 65535)) {
+    errors.push('SOCKS proxy port must be between 1 and 65535');
+  }
+  
+  // Validate local forwards
+  const localPorts = document.querySelectorAll('input[name="localPort[]"]');
+  const remotePorts = document.querySelectorAll('input[name="remotePort[]"]');
+  
+  for (let i = 0; i < localPorts.length; i++) {
+    const localPort = parseInt(localPorts[i].value);
+    const remotePort = parseInt(remotePorts[i].value);
+    
+    if (localPorts[i].value && (localPort < 1 || localPort > 65535)) {
+      errors.push(`Local port ${localPort} must be between 1 and 65535`);
+    }
+    
+    if (remotePorts[i].value && (remotePort < 1 || remotePort > 65535)) {
+      errors.push(`Remote port ${remotePort} must be between 1 and 65535`);
+    }
+  }
+  
+  return errors;
+}
+
+function getLocalForwards() {
+  const forwards = [];
+  const localPorts = document.querySelectorAll('input[name="localPort[]"]');
+  const remoteHosts = document.querySelectorAll('input[name="remoteHost[]"]');
+  const remotePorts = document.querySelectorAll('input[name="remotePort[]"]');
+  
+  for (let i = 0; i < localPorts.length; i++) {
+    if (localPorts[i].value && remotePorts[i].value) {
+      forwards.push({
+        type: 'local',
+        localPort: localPorts[i].value,
+        remoteHost: remoteHosts[i].value || 'localhost',
+        remotePort: remotePorts[i].value
+      });
+    }
+  }
+  
+  return forwards;
+}
+
+function getEditLocalForwards() {
+  const forwards = [];
+  const localPorts = document.querySelectorAll('input[name="editLocalPort[]"]');
+  const remoteHosts = document.querySelectorAll('input[name="editRemoteHost[]"]');
+  const remotePorts = document.querySelectorAll('input[name="editRemotePort[]"]');
+  
+  for (let i = 0; i < localPorts.length; i++) {
+    if (localPorts[i].value && remotePorts[i].value) {
+      forwards.push({
+        type: 'local',
+        localPort: localPorts[i].value,
+        remoteHost: remoteHosts[i].value || 'localhost',
+        remotePort: remotePorts[i].value
+      });
+    }
+  }
+  
+  return forwards;
+}
+
+function addLocalForwardRow() {
+  const container = document.getElementById('local-forwards-container');
+  const row = document.createElement('div');
+  row.className = 'port-forward-row';
+  row.innerHTML = `
+    <input type="number" placeholder="Local Port" name="localPort[]" min="1" max="65535">
+    <input type="text" placeholder="Remote Host" name="remoteHost[]" value="localhost">
+    <input type="number" placeholder="Remote Port" name="remotePort[]" min="1" max="65535">
+    <button type="button" class="btn-small btn-remove" onclick="removeForwardRow(this)">×</button>
+  `;
+  container.appendChild(row);
+}
+
+function addEditLocalForwardRow() {
+  const container = document.getElementById('edit-local-forwards-container');
+  const row = document.createElement('div');
+  row.className = 'port-forward-row';
+  row.innerHTML = `
+    <input type="number" placeholder="Local Port" name="editLocalPort[]" min="1" max="65535">
+    <input type="text" placeholder="Remote Host" name="editRemoteHost[]" value="localhost">
+    <input type="number" placeholder="Remote Port" name="editRemotePort[]" min="1" max="65535">
+    <button type="button" class="btn-small btn-remove" onclick="removeEditForwardRow(this)">×</button>
+  `;
+  container.appendChild(row);
+}
+
+function removeForwardRow(button) {
+  button.parentElement.remove();
+}
+
+function removeEditForwardRow(button) {
+  button.parentElement.remove();
+}
+
+function populateEditLocalForwards(forwards) {
+  const container = document.getElementById('edit-local-forwards-container');
+  
+  // Clear existing rows except the first template row
+  const rows = container.querySelectorAll('.port-forward-row');
+  rows.forEach((row, index) => {
+    if (index > 0) row.remove(); // Keep first row as template
+  });
+  
+  // Clear the first row
+  const firstRow = container.querySelector('.port-forward-row');
+  const inputs = firstRow.querySelectorAll('input');
+  inputs.forEach(input => input.value = '');
+  
+  // Populate with existing forwards
+  forwards.forEach((forward, index) => {
+    if (index === 0) {
+      // Use the first existing row
+      const inputs = firstRow.querySelectorAll('input');
+      inputs[0].value = forward.localPort;
+      inputs[1].value = forward.remoteHost;
+      inputs[2].value = forward.remotePort;
+    } else {
+      // Add new rows for additional forwards
+      addEditLocalForwardRow();
+      const newRow = container.lastElementChild;
+      const inputs = newRow.querySelectorAll('input');
+      inputs[0].value = forward.localPort;
+      inputs[1].value = forward.remoteHost;
+      inputs[2].value = forward.remotePort;
+    }
+  });
+}
+
 window.showEditConnectionForm = showEditConnectionForm;
 window.hideEditConnectionForm = hideEditConnectionForm;
 window.deleteGroup = deleteGroup;

@@ -17,7 +17,16 @@ class SSHManager {
   }
 
   async addConnection(options) {
-    const { name, host, user, port = '22', group = 'personal', template = 'basic-server', keyFile, jumpHost, localPort, remoteHost, remotePort, socksPort } = options;
+    const { 
+      name, host, user, port = '22', group = 'personal', template = 'basic-server', 
+      keyFile, jumpHost, localPort, remoteHost, remotePort, socksPort,
+      serverAliveInterval = '60', serverAliveCountMax = '3', 
+      connectTimeout = '10', compression = 'yes', strictHostKeyChecking = 'ask',
+      // Phase 2: Developer Features
+      controlMaster = 'auto', controlPath = '~/.ssh/control-%h-%p-%r', controlPersist = '10m',
+      forwardX11 = 'no', forwardAgent = 'no',
+      localForwards = [], remoteForwards = [], dynamicForward = ''
+    } = options;
 
     await this.validateConnectionOptions({ name, host, user, port, group });
 
@@ -36,7 +45,21 @@ class SSHManager {
       local_port: localPort || '8080',
       remote_host: remoteHost || 'localhost',
       remote_port: remotePort || '80',
-      socks_port: socksPort || '1080'
+      socks_port: socksPort || '1080',
+      server_alive_interval: serverAliveInterval,
+      server_alive_count_max: serverAliveCountMax,
+      connect_timeout: connectTimeout,
+      compression: compression,
+      strict_host_key_checking: strictHostKeyChecking,
+      // Phase 2: Developer Features
+      control_master: controlMaster,
+      control_path: controlPath,
+      control_persist: controlPersist,
+      forward_x11: forwardX11,
+      forward_agent: forwardAgent,
+      dynamic_forward: dynamicForward,
+      local_forwards: this.formatPortForwards(localForwards),
+      remote_forwards: this.formatPortForwards(remoteForwards)
     };
 
     const configContent = await this.templates.createFromTemplate(template, templateVariables);
@@ -1041,6 +1064,22 @@ class SSHManager {
     } catch (error) {
       throw new Error(`Failed to launch terminal: ${error.message}`);
     }
+  }
+
+  // Phase 2: Helper method for formatting port forwards
+  formatPortForwards(forwards) {
+    if (!Array.isArray(forwards) || forwards.length === 0) {
+      return '';
+    }
+    
+    return forwards.map(forward => {
+      if (forward.type === 'local') {
+        return `LocalForward ${forward.localPort} ${forward.remoteHost}:${forward.remotePort}`;
+      } else if (forward.type === 'remote') {
+        return `RemoteForward ${forward.remotePort} ${forward.localHost}:${forward.localPort}`;
+      }
+      return '';
+    }).filter(line => line).join('\n    ');
   }
 }
 
