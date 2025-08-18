@@ -33,10 +33,6 @@ body {
   font-weight: 600;
 }
 
-.header-actions {
-  display: flex;
-  gap: 12px;
-}
 
 /* Universal Menu Bar */
 .menu-bar {
