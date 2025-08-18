@@ -1011,6 +1011,11 @@ select[title]:focus {
   flex-shrink: 0;
 }
 
+/* Move menus closer to left edge in compact mode */
+.compact-layout .menu-bar {
+  margin-left: 8px;
+}
+
 .compact-content {
   flex: 1;
   overflow: hidden;
@@ -1038,6 +1043,11 @@ select[title]:focus {
   max-width: 350px; /* Prevent overflow in compact mode */
   z-index: 10001;
   display: none;
+}
+
+/* Make compact mode dropdowns visible when show class is added */
+.compact-layout .dropdown-menu.show {
+  display: block;
 }
 
 /* Hide original layout in compact mode */

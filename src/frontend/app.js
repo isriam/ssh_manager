@@ -26,7 +26,7 @@ const AppState = {
     if (this.viewMode === 'compact') {
       container.classList.add('compact-mode');
       compactLayout.style.display = 'flex';
-      this.resizeWindow(400, 600);
+      this.resizeWindow(400, 700);
       this.populateCompactLayout();
       // Setup only compact mode menus
       setupCompactMenus();
@@ -118,14 +118,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load saved view mode
   AppState.loadState();
   
-  // Ensure menu system is initialized after everything is loaded
-  setTimeout(() => {
-    if (AppState.viewMode === 'compact') {
-      setupCompactMenus();
-    } else {
-      setupFullModeMenus();
-    }
-  }, 100);
+  // Note: Menu system is now initialized automatically in AppState.updateLayout()
 });
 
 function initializeEventListeners() {
@@ -141,8 +134,11 @@ function initializeEventListeners() {
   // Add template change listener for edit form
   document.getElementById('edit-template').addEventListener('change', handleEditTemplateChange);
   
-  // Menu system event listeners
-  initializeMenuSystem();
+  // Initialize global menu listeners only
+  if (!globalMenuListenersInitialized) {
+    setupGlobalMenuListeners();
+    globalMenuListenersInitialized = true;
+  }
   
   // Compact mode button listeners (both original and embedded)
   const compactConnectHandler = () => {
@@ -185,95 +181,24 @@ async function refreshAll() {
   await loadConnections();
 }
 
-// Menu System Functions
-function initializeMenuSystem() {
-  // Initialize menus after DOM is ready - start with full mode
-  setupFullModeMenus();
-}
+// Menu System Functions - Improved to handle mode switching properly
+let globalMenuListenersInitialized = false;
+let globalClickListener = null;
+let globalKeyboardListener = null;
 
-function setupFullModeMenus() {
-  // Setup menus only for full mode (not in compact layout)
-  const fullModeMenus = document.querySelectorAll('.app-container > .app-header .menu-item');
-  setupMenusForElements(fullModeMenus);
-}
 
-function setupCompactMenus() {
-  // Setup menus only for compact mode (in compact layout)
-  const compactModeMenus = document.querySelectorAll('.compact-layout .menu-item');
-  setupMenusForElements(compactModeMenus);
-}
-
-function setupMenusForElements(menuItems) {
-  menuItems.forEach((menuItem, index) => {
-    const menuLabel = menuItem.querySelector('.menu-label');
-    const dropdown = menuItem.querySelector('.dropdown-menu');
-    
-    if (!menuLabel || !dropdown) return;
-    
-    // Create a unique handler for this specific menu item
-    const handleMenuClick = (e) => {
-      e.stopPropagation();
-      
-      // Close other dropdowns
-      document.querySelectorAll('.dropdown-menu').forEach(menu => {
-        if (menu !== dropdown) {
-          menu.classList.remove('show');
-          menu.parentElement.classList.remove('active');
-        }
-      });
-      
-      // Toggle current dropdown
-      dropdown.classList.toggle('show');
-      menuItem.classList.toggle('active');
-    };
-    
-    // Remove existing listener if present - use a stored reference
-    if (menuLabel._menuClickHandler) {
-      menuLabel.removeEventListener('click', menuLabel._menuClickHandler);
+function setupGlobalMenuListeners() {
+  // Single global click listener to close dropdowns when clicking outside
+  globalClickListener = (e) => {
+    // Don't close if clicking on menu labels or within dropdowns
+    if (!e.target.closest('.menu-item')) {
+      closeAllDropdowns();
     }
-    
-    // Store reference and add new listener
-    menuLabel._menuClickHandler = handleMenuClick;
-    menuLabel.addEventListener('click', handleMenuClick);
-  });
+  };
+  document.addEventListener('click', globalClickListener);
   
-  // Menu option click handlers within these specific menu items
-  menuItems.forEach(menuItem => {
-    const menuOptions = menuItem.querySelectorAll('.menu-option');
-    menuOptions.forEach(option => {
-      // Create a unique handler for this specific option
-      const handleMenuOptionClick = (e) => {
-        const action = option.dataset.action;
-        handleMenuAction(action);
-        
-        // Close all dropdowns
-        document.querySelectorAll('.dropdown-menu').forEach(menu => {
-          menu.classList.remove('show');
-          menu.parentElement.classList.remove('active');
-        });
-      };
-      
-      // Remove existing listener if present - use a stored reference
-      if (option._menuClickHandler) {
-        option.removeEventListener('click', option._menuClickHandler);
-      }
-      
-      // Store reference and add new listener
-      option._menuClickHandler = handleMenuOptionClick;
-      option.addEventListener('click', handleMenuOptionClick);
-    });
-  });
-  
-  // Close dropdowns when clicking outside
-  document.addEventListener('click', () => {
-    document.querySelectorAll('.dropdown-menu').forEach(menu => {
-      menu.classList.remove('show');
-      menu.parentElement.classList.remove('active');
-    });
-  });
-  
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
+  // Single global keyboard shortcut listener
+  globalKeyboardListener = (e) => {
     if (e.ctrlKey || e.metaKey) {
       switch(e.key) {
         case 'n':
@@ -302,6 +227,99 @@ function setupMenusForElements(menuItems) {
           break;
       }
     }
+  };
+  document.addEventListener('keydown', globalKeyboardListener);
+}
+
+function closeAllDropdowns() {
+  document.querySelectorAll('.dropdown-menu').forEach(menu => {
+    menu.classList.remove('show');
+    menu.parentElement.classList.remove('active');
+  });
+}
+
+function setupFullModeMenus() {
+  // Clear existing menu listeners before setting up new ones
+  clearMenuListeners();
+  
+  // Setup menus only for full mode (not in compact layout)
+  const fullModeMenus = document.querySelectorAll('.app-container > .app-header .menu-item');
+  setupMenusForElements(fullModeMenus, 'full');
+}
+
+function setupCompactMenus() {
+  // Clear existing menu listeners before setting up new ones
+  clearMenuListeners();
+  
+  // Setup menus only for compact mode (in compact layout)
+  const compactModeMenus = document.querySelectorAll('.compact-layout .menu-item');
+  setupMenusForElements(compactModeMenus, 'compact');
+}
+
+function clearMenuListeners() {
+  // Remove all existing menu event listeners
+  document.querySelectorAll('.menu-label').forEach(label => {
+    if (label._menuClickHandler) {
+      label.removeEventListener('click', label._menuClickHandler);
+      delete label._menuClickHandler;
+    }
+  });
+  
+  document.querySelectorAll('.menu-option').forEach(option => {
+    if (option._menuClickHandler) {
+      option.removeEventListener('click', option._menuClickHandler);
+      delete option._menuClickHandler;
+    }
+  });
+}
+
+function setupMenusForElements(menuItems, mode) {
+  menuItems.forEach((menuItem, index) => {
+    const menuLabel = menuItem.querySelector('.menu-label');
+    const dropdown = menuItem.querySelector('.dropdown-menu');
+    
+    if (!menuLabel || !dropdown) return;
+    
+    // Create a unique handler for this specific menu item
+    const handleMenuClick = (e) => {
+      e.stopPropagation();
+      
+      // Close other dropdowns
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        if (menu !== dropdown) {
+          menu.classList.remove('show');
+          menu.parentElement.classList.remove('active');
+        }
+      });
+      
+      // Toggle current dropdown
+      const isShowing = dropdown.classList.toggle('show');
+      menuItem.classList.toggle('active', isShowing);
+    };
+    
+    // Store reference and add new listener
+    menuLabel._menuClickHandler = handleMenuClick;
+    menuLabel.addEventListener('click', handleMenuClick);
+  });
+  
+  // Menu option click handlers within these specific menu items
+  menuItems.forEach(menuItem => {
+    const menuOptions = menuItem.querySelectorAll('.menu-option');
+    
+    menuOptions.forEach(option => {
+      // Create a unique handler for this specific option
+      const handleMenuOptionClick = (e) => {
+        e.stopPropagation();
+        const action = option.dataset.action;
+        
+        handleMenuAction(action);
+        closeAllDropdowns();
+      };
+      
+      // Store reference and add new listener
+      option._menuClickHandler = handleMenuOptionClick;
+      option.addEventListener('click', handleMenuOptionClick);
+    });
   });
 }
 
