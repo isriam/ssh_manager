@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Edit SSH Connection</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body style="margin: 0; padding: 16px; background: #f5f5f5;">
+  <div style="background: white; border-radius: 8px; padding: 0; height: calc(100vh - 32px); display: flex; flex-direction: column;">
+    <div class="modal-header">
+      <h3>Edit SSH Connection</h3>
+    </div>
+    <div class="modal-body" style="flex: 1; overflow-y: auto;">
+      <form id="edit-connection-form">
+        <input type="hidden" id="edit-connection-original-name" name="originalName">
+        <input type="hidden" id="edit-connection-original-group" name="originalGroup">
+
+        <!-- Basic Connection Details Section -->
+        <div class="detail-section">
+          <h4>Basic Connection Details</h4>
+          <div class="detail-grid">
+            <div class="form-group">
+              <label for="edit-connection-name">Connection Name</label>
+              <input type="text" id="edit-connection-name" name="name" required placeholder="e.g., Production Server">
+            </div>
+            <div class="form-group">
+              <label for="edit-group">Group</label>
+              <select id="edit-group" name="group">
+                <option value="personal">Personal</option>
+                <option value="work">Work</option>
+                <option value="projects">Projects</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-host">Hostname</label>
+              <input type="text" id="edit-host" name="host" required placeholder="e.g., 192.168.1.100 or server.example.com">
+            </div>
+            <div class="form-group">
+              <label for="edit-user">Username</label>
+              <input type="text" id="edit-user" name="user" placeholder="e.g., root, ubuntu">
+            </div>
+            <div class="form-group">
+              <label for="edit-port">Port</label>
+              <input type="number" id="edit-port" name="port" value="22" min="1" max="65535">
+            </div>
+            <div class="form-group">
+              <label for="edit-key-file">SSH Key File</label>
+              <input type="text" id="edit-key-file" name="keyFile" placeholder="~/.ssh/id_ed25519">
+            </div>
+          </div>
+        </div>
+
+        <!-- Template Section -->
+        <div class="detail-section">
+          <h4>Configuration Template</h4>
+          <div class="detail-grid">
+            <div class="form-group">
+              <label for="edit-template">Template</label>
+              <select id="edit-template" name="template" onchange="handleTemplateChange()">
+                <option value="basic-server">Basic Server</option>
+                <option value="developer">Developer Workstation</option>
+                <option value="aws-ec2">AWS EC2 Instance</option>
+                <option value="jump-host">Jump Host</option>
+                <option value="development">Development Server</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced options for jump-host template -->
+        <div id="edit-jump-host-options" class="detail-section" style="display: none;">
+          <h4>Jump Host Settings</h4>
+          <div class="detail-grid">
+            <div class="form-group">
+              <label for="edit-jump-host">Jump Host</label>
+              <input type="text" id="edit-jump-host" name="jumpHost" placeholder="bastion.example.com">
+            </div>
+          </div>
+        </div>
+
+        <!-- Connection Settings -->
+        <div class="detail-section">
+          <h4>Connection Settings</h4>
+          <div class="detail-grid">
+            <div class="form-group">
+              <label for="edit-connect-timeout">Connect Timeout (seconds)</label>
+              <input type="number" id="edit-connect-timeout" name="connectTimeout" min="1" max="300" value="10" title="How long to wait when establishing connection">
+            </div>
+            <div class="form-group">
+              <label for="edit-server-alive-interval">Keep-Alive Interval (seconds)</label>
+              <input type="number" id="edit-server-alive-interval" name="serverAliveInterval" min="0" max="3600" value="60" title="Send keep-alive packets every N seconds (0 = disabled)">
+            </div>
+            <div class="form-group">
+              <label for="edit-server-alive-count">Keep-Alive Max Count</label>
+              <input type="number" id="edit-server-alive-count" name="serverAliveCountMax" min="1" max="10" value="3" title="Disconnect after N failed keep-alive attempts">
+            </div>
+            <div class="form-group">
+              <label for="edit-compression">Compression</label>
+              <select id="edit-compression" name="compression" title="Enable data compression (recommended for slow connections)">
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-strict-host-checking">Host Key Checking</label>
+              <select id="edit-strict-host-checking" name="strictHostKeyChecking" title="How to handle unknown host keys">
+                <option value="ask">Ask (Prompt user)</option>
+                <option value="yes">Yes (Strict)</option>
+                <option value="no">No (Insecure)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Developer Features -->
+        <div class="detail-section">
+          <h4>Developer Features</h4>
+          <div class="detail-grid">
+            <div class="form-group">
+              <label for="edit-control-master">Connection Multiplexing</label>
+              <select id="edit-control-master" name="controlMaster" title="Reuse SSH connections for faster subsequent connections">
+                <option value="auto">Auto</option>
+                <option value="yes">Yes</option>
+                <option value="no">No</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-control-persist">Persist Duration</label>
+              <input type="text" id="edit-control-persist" name="controlPersist" value="10m" placeholder="10m" title="How long to keep master connection alive">
+            </div>
+            <div class="form-group">
+              <label for="edit-forward-x11">X11 Forwarding (GUI Apps)</label>
+              <select id="edit-forward-x11" name="forwardX11" title="Enable GUI applications over SSH">
+                <option value="no">No</option>
+                <option value="yes">Yes</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-forward-agent">SSH Agent Forwarding</label>
+              <select id="edit-forward-agent" name="forwardAgent" title="Forward SSH agent for key-based authentication">
+                <option value="no">No (Secure)</option>
+                <option value="yes">Yes (Less Secure)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="edit-dynamic-forward">SOCKS Proxy Port</label>
+              <input type="number" id="edit-dynamic-forward" name="dynamicForward" min="1" max="65535" placeholder="e.g., 1080" title="Dynamic port forwarding for SOCKS proxy">
+            </div>
+          </div>
+          
+          <!-- Port Forwarding Section -->
+          <h5>Local Port Forwards</h5>
+          <div class="form-group">
+            <div id="edit-local-forwards-container">
+              <div class="port-forward-row">
+                <input type="number" placeholder="Local Port" name="editLocalPort[]" min="1" max="65535">
+                <input type="text" placeholder="Remote Host" name="editRemoteHost[]" value="localhost">
+                <input type="number" placeholder="Remote Port" name="editRemotePort[]" min="1" max="65535">
+                <button type="button" class="btn-small btn-remove" onclick="removeEditForwardRow(this)">×</button>
+              </div>
+            </div>
+            <button type="button" id="add-edit-local-forward" class="btn-small btn-secondary">+ Add Local Forward</button>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="detail-section">
+          <div class="detail-actions">
+            <button type="submit" class="btn btn-primary">💾 Update Connection</button>
+            <button type="button" class="btn btn-secondary" onclick="window.close()">❌ Cancel</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Handle template changes
+    function handleTemplateChange() {
+      const template = document.getElementById('edit-template').value;
+      const jumpHostOptions = document.getElementById('edit-jump-host-options');
+      
+      if (template === 'jump-host') {
+        jumpHostOptions.style.display = 'block';
+      } else {
+        jumpHostOptions.style.display = 'none';
+      }
+    }
+
+    // Handle adding/removing port forwards
+    document.getElementById('add-edit-local-forward').addEventListener('click', () => {
+      const container = document.getElementById('edit-local-forwards-container');
+      const newRow = document.createElement('div');
+      newRow.className = 'port-forward-row';
+      newRow.innerHTML = `
+        <input type="number" placeholder="Local Port" name="editLocalPort[]" min="1" max="65535">
+        <input type="text" placeholder="Remote Host" name="editRemoteHost[]" value="localhost">
+        <input type="number" placeholder="Remote Port" name="editRemotePort[]" min="1" max="65535">
+        <button type="button" class="btn-small btn-remove" onclick="removeEditForwardRow(this)">×</button>
+      `;
+      container.appendChild(newRow);
+    });
+
+    function removeEditForwardRow(button) {
+      button.parentElement.remove();
+    }
+
+    // Handle form submission
+    document.getElementById('edit-connection-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const originalName = formData.get('originalName');
+      const originalGroup = formData.get('originalGroup');
+      
+      const options = {
+        name: formData.get('name'),
+        host: formData.get('host'),
+        user: formData.get('user'),
+        port: parseInt(formData.get('port')) || 22,
+        group: formData.get('group'),
+        keyFile: formData.get('keyFile') || '~/.ssh/id_ed25519',
+        template: formData.get('template'),
+        jumpHost: formData.get('jumpHost'),
+        connectTimeout: parseInt(formData.get('connectTimeout')) || 10,
+        serverAliveInterval: parseInt(formData.get('serverAliveInterval')) || 60,
+        serverAliveCountMax: parseInt(formData.get('serverAliveCountMax')) || 3,
+        compression: formData.get('compression'),
+        strictHostKeyChecking: formData.get('strictHostKeyChecking'),
+        controlMaster: formData.get('controlMaster'),
+        controlPersist: formData.get('controlPersist'),
+        forwardX11: formData.get('forwardX11'),
+        forwardAgent: formData.get('forwardAgent'),
+        dynamicForward: formData.get('dynamicForward') ? parseInt(formData.get('dynamicForward')) : null
+      };
+
+      // Collect port forwards
+      const localPorts = formData.getAll('editLocalPort[]');
+      const remoteHosts = formData.getAll('editRemoteHost[]');
+      const remotePorts = formData.getAll('editRemotePort[]');
+      const localForwards = [];
+      
+      for (let i = 0; i < localPorts.length; i++) {
+        if (localPorts[i] && remotePorts[i]) {
+          localForwards.push({
+            localPort: parseInt(localPorts[i]),
+            remoteHost: remoteHosts[i] || 'localhost',
+            remotePort: parseInt(remotePorts[i])
+          });
+        }
+      }
+      
+      if (localForwards.length > 0) {
+        options.localForwards = localForwards;
+      }
+
+      try {
+        const result = await window.electronAPI.ssh.updateConnection(originalName, originalGroup, options);
+        if (result.success) {
+          window.close();
+        } else {
+          alert('Error: ' + result.error);
+        }
+      } catch (error) {
+        alert('Error: ' + error.message);
+      }
+    });
+
+    // Listen for connection data from main process
+    window.electronAPI.ipc.on('connection-data', (connectionData) => {
+      if (connectionData) {
+        document.getElementById('edit-connection-original-name').value = connectionData.name;
+        document.getElementById('edit-connection-original-group').value = connectionData.group;
+        document.getElementById('edit-connection-name').value = connectionData.name;
+        document.getElementById('edit-host').value = connectionData.host || '';
+        document.getElementById('edit-user').value = connectionData.user || '';
+        document.getElementById('edit-port').value = connectionData.port || 22;
+        document.getElementById('edit-key-file').value = connectionData.keyFile || '~/.ssh/id_ed25519';
+        
+        // Populate advanced settings
+        document.getElementById('edit-template').value = connectionData.template || 'basic-server';
+        document.getElementById('edit-jump-host').value = connectionData.jumpHost || '';
+        document.getElementById('edit-connect-timeout').value = connectionData.connectTimeout || 10;
+        document.getElementById('edit-server-alive-interval').value = connectionData.serverAliveInterval || 60;
+        document.getElementById('edit-server-alive-count').value = connectionData.serverAliveCountMax || 3;
+        document.getElementById('edit-compression').value = connectionData.compression || 'yes';
+        document.getElementById('edit-strict-host-checking').value = connectionData.strictHostKeyChecking || 'ask';
+        document.getElementById('edit-control-master').value = connectionData.controlMaster || 'auto';
+        document.getElementById('edit-control-persist').value = connectionData.controlPersist || '10m';
+        document.getElementById('edit-forward-x11').value = connectionData.forwardX11 || 'no';
+        document.getElementById('edit-forward-agent').value = connectionData.forwardAgent || 'no';
+        document.getElementById('edit-dynamic-forward').value = connectionData.dynamicForward || '';
+        
+        // Handle template change after setting value
+        handleTemplateChange();
+      }
+    });
+
+    // Initialize template change handler
+    handleTemplateChange();
+  </script>
+</body>
+</html>

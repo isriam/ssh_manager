@@ -24,10 +24,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   window: {
     resize: (width, height) => ipcRenderer.invoke('window:resize', width, height),
+    resizeForEdit: () => ipcRenderer.invoke('window:resize-for-edit'),
+    restoreSize: (originalSize) => ipcRenderer.invoke('window:restore-size', originalSize),
     openConnectionForm: (options) => ipcRenderer.invoke('window:open-connection-form', options),
-    openConnectionDetails: (options) => ipcRenderer.invoke('window:open-connection-details', options)
+    openConnectionDetails: (options) => ipcRenderer.invoke('window:open-connection-details', options),
+    openEditModal: (connectionData) => ipcRenderer.invoke('window:open-edit-modal', connectionData),
+    openAddModal: () => ipcRenderer.invoke('window:open-add-modal')
   },
   app: {
     quit: () => ipcRenderer.invoke('app:quit')
+  },
+  ipc: {
+    on: (channel, callback) => ipcRenderer.on(channel, (event, ...args) => callback(...args))
   }
 });

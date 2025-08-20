@@ -304,63 +304,73 @@
             <input type="hidden" id="edit-connection-original-name" name="originalName">
             <input type="hidden" id="edit-connection-original-group" name="originalGroup">
 
-            <div class="form-group">
-              <label for="edit-connection-name">Connection Name</label>
-              <input type="text" id="edit-connection-name" name="name" required placeholder="e.g., Production Server">
-            </div>
-
-            <div class="form-group">
-              <label for="edit-host">Host</label>
-              <input type="text" id="edit-host" name="host" required placeholder="e.g., 192.168.1.100 or server.example.com">
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="edit-user">Username</label>
-                <input type="text" id="edit-user" name="user" placeholder="e.g., root, ubuntu">
+            <!-- Basic Connection Details Section -->
+            <div class="detail-section">
+              <h4>Basic Connection Details</h4>
+              <div class="detail-grid">
+                <div class="form-group">
+                  <label for="edit-connection-name">Connection Name</label>
+                  <input type="text" id="edit-connection-name" name="name" required placeholder="e.g., Production Server">
+                </div>
+                <div class="form-group">
+                  <label for="edit-group">Group</label>
+                  <select id="edit-group" name="group">
+                    <option value="personal">Personal</option>
+                    <option value="work">Work</option>
+                    <option value="projects">Projects</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="edit-host">Hostname</label>
+                  <input type="text" id="edit-host" name="host" required placeholder="e.g., 192.168.1.100 or server.example.com">
+                </div>
+                <div class="form-group">
+                  <label for="edit-user">Username</label>
+                  <input type="text" id="edit-user" name="user" placeholder="e.g., root, ubuntu">
+                </div>
+                <div class="form-group">
+                  <label for="edit-port">Port</label>
+                  <input type="number" id="edit-port" name="port" value="22" min="1" max="65535">
+                </div>
+                <div class="form-group">
+                  <label for="edit-key-file">SSH Key File</label>
+                  <input type="text" id="edit-key-file" name="keyFile" placeholder="~/.ssh/id_ed25519">
+                </div>
               </div>
-              <div class="form-group">
-                <label for="edit-port">Port</label>
-                <input type="number" id="edit-port" name="port" value="22" min="1" max="65535">
+            </div>
+
+            <!-- Template Section -->
+            <div class="detail-section">
+              <h4>Configuration Template</h4>
+              <div class="detail-grid">
+                <div class="form-group">
+                  <label for="edit-template">Template</label>
+                  <select id="edit-template" name="template">
+                    <option value="basic-server">Basic Server</option>
+                    <option value="developer">Developer Workstation</option>
+                    <option value="aws-ec2">AWS EC2 Instance</option>
+                    <option value="jump-host">Jump Host</option>
+                    <option value="development">Development Server</option>
+                  </select>
+                </div>
               </div>
-            </div>
-
-            <div class="form-group">
-              <label for="edit-group">Group</label>
-              <select id="edit-group" name="group">
-                <option value="personal">Personal</option>
-                <option value="work">Work</option>
-                <option value="projects">Projects</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="edit-template">Template</label>
-              <select id="edit-template" name="template">
-                <option value="basic-server">Basic Server</option>
-                <option value="developer">Developer Workstation</option>
-                <option value="aws-ec2">AWS EC2 Instance</option>
-                <option value="jump-host">Jump Host</option>
-                <option value="development">Development Server</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label for="edit-key-file">SSH Key File</label>
-              <input type="text" id="edit-key-file" name="keyFile" placeholder="~/.ssh/id_ed25519">
             </div>
 
             <!-- Advanced options for jump-host template -->
-            <div id="edit-jump-host-options" class="form-group" style="display: none;">
-              <label for="edit-jump-host">Jump Host</label>
-              <input type="text" id="edit-jump-host" name="jumpHost" placeholder="bastion.example.com">
+            <div id="edit-jump-host-options" class="detail-section" style="display: none;">
+              <h4>Jump Host Settings</h4>
+              <div class="detail-grid">
+                <div class="form-group">
+                  <label for="edit-jump-host">Jump Host</label>
+                  <input type="text" id="edit-jump-host" name="jumpHost" placeholder="bastion.example.com">
+                </div>
+              </div>
             </div>
 
-            <!-- Phase 1: Connection Settings -->
-            <div class="form-section">
+            <!-- Connection Settings -->
+            <div class="detail-section">
               <h4>Connection Settings</h4>
-              
-              <div class="form-row">
+              <div class="detail-grid">
                 <div class="form-group">
                   <label for="edit-connect-timeout">Connect Timeout (seconds)</label>
                   <input type="number" id="edit-connect-timeout" name="connectTimeout" min="1" max="300" value="10" title="How long to wait when establishing connection">
@@ -369,9 +379,6 @@
                   <label for="edit-server-alive-interval">Keep-Alive Interval (seconds)</label>
                   <input type="number" id="edit-server-alive-interval" name="serverAliveInterval" min="0" max="3600" value="60" title="Send keep-alive packets every N seconds (0 = disabled)">
                 </div>
-              </div>
-              
-              <div class="form-row">
                 <div class="form-group">
                   <label for="edit-server-alive-count">Keep-Alive Max Count</label>
                   <input type="number" id="edit-server-alive-count" name="serverAliveCountMax" min="1" max="10" value="3" title="Disconnect after N failed keep-alive attempts">
@@ -383,24 +390,21 @@
                     <option value="no">No</option>
                   </select>
                 </div>
-              </div>
-              
-              <div class="form-group">
-                <label for="edit-strict-host-checking">Host Key Checking</label>
-                <select id="edit-strict-host-checking" name="strictHostKeyChecking" title="How to handle unknown host keys">
-                  <option value="ask">Ask (Prompt user)</option>
-                  <option value="yes">Yes (Strict)</option>
-                  <option value="no">No (Insecure)</option>
-                </select>
+                <div class="form-group">
+                  <label for="edit-strict-host-checking">Host Key Checking</label>
+                  <select id="edit-strict-host-checking" name="strictHostKeyChecking" title="How to handle unknown host keys">
+                    <option value="ask">Ask (Prompt user)</option>
+                    <option value="yes">Yes (Strict)</option>
+                    <option value="no">No (Insecure)</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <!-- Phase 2: Developer Features -->
-            <div class="form-section">
+            <!-- Developer Features -->
+            <div class="detail-section">
               <h4>Developer Features</h4>
-              
-              <!-- Connection Multiplexing -->
-              <div class="form-row">
+              <div class="detail-grid">
                 <div class="form-group">
                   <label for="edit-control-master">Connection Multiplexing</label>
                   <select id="edit-control-master" name="controlMaster" title="Reuse SSH connections for faster subsequent connections">
@@ -413,10 +417,6 @@
                   <label for="edit-control-persist">Persist Duration</label>
                   <input type="text" id="edit-control-persist" name="controlPersist" value="10m" placeholder="10m" title="How long to keep master connection alive">
                 </div>
-              </div>
-              
-              <!-- Forwarding Options -->
-              <div class="form-row">
                 <div class="form-group">
                   <label for="edit-forward-x11">X11 Forwarding (GUI Apps)</label>
                   <select id="edit-forward-x11" name="forwardX11" title="Enable GUI applications over SSH">
@@ -431,11 +431,15 @@
                     <option value="yes">Yes (Less Secure)</option>
                   </select>
                 </div>
+                <div class="form-group">
+                  <label for="edit-dynamic-forward">SOCKS Proxy Port</label>
+                  <input type="number" id="edit-dynamic-forward" name="dynamicForward" min="1" max="65535" placeholder="e.g., 1080" title="Dynamic port forwarding for SOCKS proxy">
+                </div>
               </div>
               
-              <!-- Port Forwarding -->
+              <!-- Port Forwarding Section -->
+              <h5>Local Port Forwards</h5>
               <div class="form-group">
-                <label for="edit-local-forwards">Local Port Forwards</label>
                 <div id="edit-local-forwards-container">
                   <div class="port-forward-row">
                     <input type="number" placeholder="Local Port" name="editLocalPort[]" min="1" max="65535">
@@ -446,17 +450,14 @@
                 </div>
                 <button type="button" id="add-edit-local-forward" class="btn-small btn-secondary">+ Add Local Forward</button>
               </div>
-              
-              <!-- SOCKS Proxy -->
-              <div class="form-group">
-                <label for="edit-dynamic-forward">SOCKS Proxy Port</label>
-                <input type="number" id="edit-dynamic-forward" name="dynamicForward" min="1" max="65535" placeholder="e.g., 1080" title="Dynamic port forwarding for SOCKS proxy">
-              </div>
             </div>
 
-            <div class="form-actions">
-              <button type="button" class="btn btn-secondary" onclick="hideEditConnectionForm()">Cancel</button>
-              <button type="submit" class="btn btn-primary">Update Connection</button>
+            <div class="detail-section">
+              <h4>Actions</h4>
+              <div class="detail-actions">
+                <button type="submit" class="btn btn-primary">💾 Update Connection</button>
+                <button type="button" class="btn btn-secondary" onclick="hideEditConnectionForm()">❌ Cancel</button>
+              </div>
             </div>
           </form>
         </div>

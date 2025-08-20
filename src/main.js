@@ -3,11 +3,13 @@ const path = require('path');
 const SSHManager = require('./backend/ssh-manager');
 
 let mainWindow;
+let editWindow;
+let addWindow;
 let sshManager;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1200,
+    width: 400,
     height: 800,
     minWidth: 350,
     minHeight: 500,
@@ -27,7 +29,44 @@ function createWindow() {
   }
 
   mainWindow.on('closed', () => {
+    if (editWindow) {
+      editWindow.close();
+    }
     mainWindow = null;
+  });
+}
+
+function createEditWindow(connectionData) {
+  if (editWindow) {
+    editWindow.focus();
+    return;
+  }
+
+  editWindow = new BrowserWindow({
+    width: 800,
+    height: 700,
+    minWidth: 600,
+    minHeight: 500,
+    parent: mainWindow,
+    modal: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'frontend', 'preload.js')
+    },
+    title: 'Edit SSH Connection',
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png')
+  });
+
+  editWindow.loadFile(path.join(__dirname, 'frontend', 'edit-window.html'));
+
+  editWindow.on('closed', () => {
+    editWindow = null;
+  });
+
+  // Send connection data to edit window when ready
+  editWindow.webContents.once('dom-ready', () => {
+    editWindow.webContents.send('connection-data', connectionData);
   });
 }
 
@@ -227,6 +266,39 @@ ipcMain.handle('window:resize', async (event, width, height) => {
   }
 });
 
+ipcMain.handle('window:resize-for-edit', async (event) => {
+  try {
+    if (mainWindow) {
+      // Store original size
+      const [width, height] = mainWindow.getSize();
+      const originalSize = { width, height };
+      
+      // Resize to accommodate edit modal
+      mainWindow.setSize(900, 800);
+      mainWindow.center();
+      return { success: true, originalSize };
+    }
+    return { success: false, error: 'Window not available' };
+  } catch (error) {
+    console.error('Failed to resize window for edit:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('window:restore-size', async (event, originalSize) => {
+  try {
+    if (mainWindow && originalSize) {
+      mainWindow.setSize(originalSize.width, originalSize.height);
+      mainWindow.center();
+      return { success: true };
+    }
+    return { success: false, error: 'Window or size not available' };
+  } catch (error) {
+    console.error('Failed to restore window size:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('app:quit', async () => {
   try {
     app.quit();
@@ -251,6 +323,96 @@ ipcMain.handle('window:open-connection-details', async (event, options) => {
     return { success: true, message: 'Popup functionality will be implemented with existing modals for now' };
   } catch (error) {
     console.error('Failed to open connection details:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('window:open-edit-window', async (event, connectionData) => {
+  try {
+    createEditWindow(connectionData);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open edit window:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('window:open-edit-modal', async (event, connectionData) => {
+  try {
+    if (editWindow) {
+      editWindow.focus();
+      return { success: true };
+    }
+
+    editWindow = new BrowserWindow({
+      width: 600,
+      height: 600,
+      resizable: false,
+      parent: mainWindow,
+      modal: false,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'frontend', 'preload.js')
+      },
+      title: 'Edit SSH Connection'
+    });
+
+    editWindow.loadFile(path.join(__dirname, 'frontend', 'edit-standalone.html'));
+
+    editWindow.once('ready-to-show', () => {
+      editWindow.show();
+      // Send connection data to the window
+      editWindow.webContents.send('connection-data', connectionData);
+    });
+
+    editWindow.on('closed', () => {
+      editWindow = null;
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open edit modal:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('window:open-add-modal', async (event) => {
+  try {
+    if (addWindow) {
+      addWindow.focus();
+      return { success: true };
+    }
+
+    addWindow = new BrowserWindow({
+      width: 600,
+      height: 600,
+      resizable: false,
+      parent: mainWindow,
+      modal: false,
+      show: false,
+      webPreferences: {
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: path.join(__dirname, 'frontend', 'preload.js')
+      },
+      title: 'Add SSH Connection'
+    });
+
+    addWindow.loadFile(path.join(__dirname, 'frontend', 'add-standalone.html'));
+
+    addWindow.once('ready-to-show', () => {
+      addWindow.show();
+    });
+
+    addWindow.on('closed', () => {
+      addWindow = null;
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to open add modal:', error);
     return { success: false, error: error.message };
   }
 });

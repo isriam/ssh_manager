@@ -4,13 +4,14 @@ let groupsTree = {}; // Nested group tree structure
 let expandedGroups = new Set(); // Track expanded/collapsed states
 let selectedConnection = null;
 let draggedConnection = null;
+let originalWindowSize = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   initializeEventListeners();
   await loadGroups();
   await loadConnections();
   await loadTemplates();
-  initializeDragAndDrop();
+  initializeDragAndDropDelegation();
   
   // Initialize menu system
   setupMenuSystem();
@@ -279,6 +280,65 @@ function initializeDragAndDrop() {
       item.draggable = true;
     }
   });
+}
+
+// Enhanced function to initialize drag and drop with event delegation
+function initializeDragAndDropDelegation() {
+  const treeContainer = document.getElementById('groups-tree');
+  if (!treeContainer) return;
+  
+  // Remove existing delegation listener if it exists
+  if (treeContainer._dragEventHandler) {
+    treeContainer.removeEventListener('dragover', treeContainer._dragEventHandler);
+    treeContainer.removeEventListener('drop', treeContainer._dragEventHandler);
+    treeContainer.removeEventListener('dragleave', treeContainer._dragEventHandler);
+  }
+  
+  // Create unified drag event handler using event delegation
+  const handleDragEvents = (e) => {
+    const header = e.target.closest('.tree-node-header');
+    if (!header) return;
+    
+    if (e.type === 'dragover') {
+      handleDragOver.call(header, e);
+    } else if (e.type === 'drop') {
+      handleDrop.call(header, e);
+    } else if (e.type === 'dragleave') {
+      handleDragLeave.call(header, e);
+    }
+  };
+  
+  // Store reference and add delegation listeners
+  treeContainer._dragEventHandler = handleDragEvents;
+  treeContainer.addEventListener('dragover', handleDragEvents);
+  treeContainer.addEventListener('drop', handleDragEvents);
+  treeContainer.addEventListener('dragleave', handleDragEvents);
+  
+  // Also ensure existing and future connection items are draggable
+  initializeDragAndDrop();
+  
+  // Set up delegation for dynamically created connection draggability
+  const makeDynamicConnectionsDraggable = () => {
+    document.querySelectorAll('.connection-tree-item:not([draggable])').forEach(item => {
+      const isExisting = item.dataset.isExisting === 'true';
+      if (!isExisting) {
+        item.draggable = true;
+        item.addEventListener('dragstart', handleDragStart);
+        item.addEventListener('dragend', handleDragEnd);
+      }
+    });
+  };
+  
+  // Use a MutationObserver to detect new connection items
+  const observer = new MutationObserver(makeDynamicConnectionsDraggable);
+  observer.observe(treeContainer, { 
+    childList: true, 
+    subtree: true,
+    attributes: false 
+  });
+  
+  // Initial setup for existing items
+  makeDynamicConnectionsDraggable();
 }
 
 // Initialize sidebar resizer functionality
@@ -596,8 +656,7 @@ function toggleNestedGroup(groupPath, groupNode) {
     groupNode.classList.remove('collapsed');
     groupNode.classList.add('expanded');
     
-    // Initialize drag and drop for newly created nested group headers
-    initializeDragAndDrop();
+    // Note: Drag and drop is handled by event delegation, no need to re-initialize
   }
   
   // Re-render connections for this group
@@ -645,8 +704,7 @@ function renderTreeConnections() {
     });
   });
   
-  // Initialize drag and drop after rendering all connections
-  initializeDragAndDrop();
+  // Note: Drag and drop is handled by event delegation
   
   if (selectedConnection) {
     selectConnection(selectedConnection.name, selectedConnection.group);
@@ -675,8 +733,7 @@ function renderConnectionsForGroup(groupPath) {
     });
   });
   
-  // Initialize drag and drop for newly created connection items
-  initializeDragAndDrop();
+  // Note: Drag and drop is handled by event delegation
 }
 
 /**
@@ -1010,26 +1067,39 @@ function handleDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   
-  const treeNode = e.currentTarget.closest('.tree-node');
+  // When using delegation, 'this' refers to the header element
+  const header = this || e.target.closest('.tree-node-header');
+  if (!header) return;
+  
+  const treeNode = header.closest('.tree-node');
   const targetGroup = treeNode ? treeNode.dataset.group : null;
   
   // Don't allow dropping to existing group or same group
   if (draggedConnection && targetGroup && targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
-    e.currentTarget.classList.add('drag-over');
+    header.classList.add('drag-over');
   }
 }
 
 function handleDragLeave(e) {
-  e.currentTarget.classList.remove('drag-over');
+  // When using delegation, 'this' refers to the header element
+  const header = this || e.target.closest('.tree-node-header');
+  if (header) {
+    header.classList.remove('drag-over');
+  }
 }
 
 async function handleDrop(e) {
   e.preventDefault();
-  e.currentTarget.classList.remove('drag-over');
+  
+  // When using delegation, 'this' refers to the header element
+  const header = this || e.target.closest('.tree-node-header');
+  if (!header) return;
+  
+  header.classList.remove('drag-over');
   
   if (!draggedConnection) return;
   
-  const treeNode = e.currentTarget.closest('.tree-node');
+  const treeNode = header.closest('.tree-node');
   const targetGroup = treeNode ? treeNode.dataset.group : null;
   
   // Don't allow dropping to existing group or same group
@@ -1128,7 +1198,15 @@ function updateConnectionCount() {
   document.getElementById('connection-count').textContent = `${total} connection${total !== 1 ? 's' : ''}`;
 }
 
-function showAddConnectionForm(preSelectedGroup = null) {
+async function showAddConnectionForm(preSelectedGroup = null) {
+  // Open add connection window instead of modal
+  const result = await window.electronAPI.window.openAddModal();
+  if (!result.success) {
+    showError('Failed to open add connection window: ' + result.error);
+  }
+  return;
+  
+  // Old modal code - keep as fallback
   updateGroupDropdown();
   
   // Pre-select group if specified
@@ -1364,6 +1442,14 @@ async function editConnection(name, group) {
       return;
     }
 
+    // Open edit window with connection data
+    const result = await window.electronAPI.window.openEditModal(connection);
+    if (!result.success) {
+      showError('Failed to open edit window: ' + result.error);
+    }
+    return;
+
+    // Old modal code - keep as fallback
     // Populate the edit form with current values
     document.getElementById('edit-connection-original-name').value = name;
     document.getElementById('edit-connection-original-group').value = group;
