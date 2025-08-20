@@ -5,124 +5,6 @@ let expandedGroups = new Set(); // Track expanded/collapsed states
 let selectedConnection = null;
 let draggedConnection = null;
 
-// App state management for view modes
-const AppState = {
-  viewMode: 'full', // 'full' | 'compact'
-  selectedConnection: null,
-  
-  setViewMode(mode) {
-    this.viewMode = mode;
-    this.updateLayout();
-    this.saveState();
-  },
-  
-  setSelectedConnection(connection) {
-    this.selectedConnection = connection;
-    this.updateCompactActions();
-  },
-  
-  updateLayout() {
-    const container = document.querySelector('.app-container');
-    const compactLayout = document.getElementById('compact-layout');
-    
-    if (this.viewMode === 'compact') {
-      container.classList.add('compact-mode');
-      compactLayout.style.display = 'flex';
-      this.resizeWindow(500, 700);
-      this.populateCompactLayout();
-      // Setup only compact mode menus
-      setupCompactMenus();
-    } else {
-      container.classList.remove('compact-mode');
-      compactLayout.style.display = 'none';
-      this.resizeWindow(1200, 800);
-      // Setup only full mode menus
-      setupFullModeMenus();
-    }
-  },
-  
-  populateCompactLayout() {
-    // Render the tree structure in compact layout
-    const compactTree = document.getElementById('groups-tree-compact');
-    if (compactTree) {
-      compactTree.innerHTML = '';
-      
-      // Use the same rendering logic as the main tree
-      if (Object.keys(groupsTree).length > 0) {
-        renderNestedGroupTree(compactTree, groupsTree, 0);
-      } else {
-        // Fallback to flat group structure for backward compatibility
-        allGroups.forEach(groupName => {
-          const groupNode = createGroupNode(groupName, 0);
-          compactTree.appendChild(groupNode);
-        });
-      }
-      
-      // Render connections for all groups in compact mode
-      renderCompactConnections();
-    }
-  },
-  
-  updateCompactActions() {
-    // Handle both original and embedded compact buttons
-    const connectBtns = [
-      document.getElementById('compact-connect-btn'),
-      document.getElementById('compact-connect-btn-embedded')
-    ];
-    const detailsBtns = [
-      document.getElementById('compact-details-btn'), 
-      document.getElementById('compact-details-btn-embedded')
-    ];
-    const editBtns = [
-      document.getElementById('compact-edit-btn'),
-      document.getElementById('compact-edit-btn-embedded')
-    ];
-    const infoElements = document.querySelectorAll('.compact-connection-text');
-    
-    if (this.selectedConnection && this.viewMode === 'compact') {
-      connectBtns.forEach(btn => btn && (btn.disabled = false));
-      detailsBtns.forEach(btn => btn && (btn.disabled = false));
-      editBtns.forEach(btn => btn && (btn.disabled = false));
-      
-      const displayText = `${this.selectedConnection.user}@${this.selectedConnection.host}:${this.selectedConnection.port}`;
-      infoElements.forEach(el => {
-        el.textContent = displayText;
-        el.classList.add('has-selection');
-      });
-    } else {
-      connectBtns.forEach(btn => btn && (btn.disabled = true));
-      detailsBtns.forEach(btn => btn && (btn.disabled = true));
-      editBtns.forEach(btn => btn && (btn.disabled = true));
-      
-      infoElements.forEach(el => {
-        el.textContent = 'Select a connection';
-        el.classList.remove('has-selection');
-      });
-    }
-  },
-  
-  resizeWindow(width, height) {
-    if (window.electronAPI && window.electronAPI.window) {
-      window.electronAPI.window.resize(width, height);
-    } else {
-      // Fallback for web/development mode
-      console.log(`Would resize to ${width}x${height}`);
-    }
-  },
-  
-  saveState() {
-    localStorage.setItem('ssh-manager-view-mode', this.viewMode);
-  },
-  
-  loadState() {
-    const savedMode = localStorage.getItem('ssh-manager-view-mode');
-    if (savedMode) {
-      this.viewMode = savedMode;
-      this.updateLayout();
-    }
-  }
-};
-
 document.addEventListener('DOMContentLoaded', async () => {
   initializeEventListeners();
   await loadGroups();
@@ -130,14 +12,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   await loadTemplates();
   initializeDragAndDrop();
   
-  // Load saved view mode
-  AppState.loadState();
-  
-  // Note: Menu system is now initialized automatically in AppState.updateLayout()
+  // Initialize menu system
+  setupMenuSystem();
 });
 
 function initializeEventListeners() {
-  document.getElementById('search-input').addEventListener('input', filterConnections);
   document.getElementById('add-connection-form').addEventListener('submit', handleAddConnection);
   document.getElementById('edit-connection-form').addEventListener('submit', handleEditConnection);
   
@@ -145,46 +24,16 @@ function initializeEventListeners() {
   document.getElementById('add-group-form').addEventListener('submit', handleAddGroup);
   document.getElementById('edit-group-form').addEventListener('submit', handleEditGroup);
 
+  // Initialize tree event delegation
+  setupTreeEventDelegation();
 
   // Add template change listener for edit form
   document.getElementById('edit-template').addEventListener('change', handleEditTemplateChange);
   
-  // Initialize global menu listeners only
-  if (!globalMenuListenersInitialized) {
-    setupGlobalMenuListeners();
-    globalMenuListenersInitialized = true;
-  }
-  
-  // Compact mode button listeners (both original and embedded)
-  const compactConnectHandler = () => {
-    if (AppState.selectedConnection) {
-      connectToServer(AppState.selectedConnection.name, AppState.selectedConnection.group);
-    }
-  };
-  
-  const compactDetailsHandler = () => {
-    AppState.setViewMode('full');
-    if (AppState.selectedConnection) {
-      selectConnection(AppState.selectedConnection.name, AppState.selectedConnection.group);
-    }
-  };
-  
-  const compactEditHandler = () => {
-    AppState.setViewMode('full');
-    if (AppState.selectedConnection) {
-      editConnection(AppState.selectedConnection.name, AppState.selectedConnection.group);
-    }
-  };
-  
-  // Add listeners to both sets of buttons
-  document.getElementById('compact-connect-btn')?.addEventListener('click', compactConnectHandler);
-  document.getElementById('compact-connect-btn-embedded')?.addEventListener('click', compactConnectHandler);
-  
-  document.getElementById('compact-details-btn')?.addEventListener('click', compactDetailsHandler);
-  document.getElementById('compact-details-btn-embedded')?.addEventListener('click', compactDetailsHandler);
-  
-  document.getElementById('compact-edit-btn')?.addEventListener('click', compactEditHandler);
-  document.getElementById('compact-edit-btn-embedded')?.addEventListener('click', compactEditHandler);
+  // Action button listeners
+  document.getElementById('connect-btn').addEventListener('click', handleConnect);
+  document.getElementById('details-btn').addEventListener('click', handleDetails);
+  document.getElementById('edit-btn').addEventListener('click', handleEdit);
   
   // Phase 2: Dynamic port forward management
   document.getElementById('add-local-forward').addEventListener('click', addLocalForwardRow);
@@ -196,29 +45,127 @@ async function refreshAll() {
   await loadConnections();
 }
 
-// Menu System Functions - Improved to handle mode switching properly
-let globalMenuListenersInitialized = false;
-let globalClickListener = null;
-let globalKeyboardListener = null;
+// Simplified event handling functions
+function handleConnect() {
+  if (selectedConnection) {
+    connectToServer(selectedConnection.name, selectedConnection.group);
+  }
+}
 
+function handleDetails() {
+  if (selectedConnection) {
+    openDetailsWindow(selectedConnection);
+  }
+}
 
-function setupGlobalMenuListeners() {
-  // Single global click listener to close dropdowns when clicking outside
-  globalClickListener = (e) => {
-    // Don't close if clicking on menu labels or within dropdowns
+function handleEdit() {
+  if (selectedConnection) {
+    openEditWindow(selectedConnection);
+  }
+}
+
+// Setup simplified tree event delegation
+function setupTreeEventDelegation() {
+  const treeContainer = document.getElementById('groups-tree');
+  if (!treeContainer) {
+    console.warn('Tree container not found');
+    return;
+  }
+  
+  // Remove any existing listeners to avoid duplicates
+  if (treeContainer._treeEventHandler) {
+    treeContainer.removeEventListener('click', treeContainer._treeEventHandler);
+  }
+  
+  // Create unified event handler
+  const handleTreeActions = (e) => {
+    if (e.target.matches('.group-action-btn')) {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const action = e.target.dataset.action;
+      const groupPath = e.target.dataset.group;
+      
+      console.log('Tree action:', { action, groupPath });
+      
+      switch (action) {
+        case 'add-subgroup':
+          showAddSubgroupForm(groupPath);
+          break;
+        case 'add-connection':
+          openAddConnectionWindow(groupPath);
+          break;
+        case 'edit-group':
+          showEditGroupForm(groupPath);
+          break;
+        case 'delete-group':
+          deleteGroup(groupPath);
+          break;
+        default:
+          console.warn('Unknown tree action:', action);
+      }
+    }
+  };
+  
+  // Store reference and add listener
+  treeContainer._treeEventHandler = handleTreeActions;
+  treeContainer.addEventListener('click', handleTreeActions);
+  
+  console.log('Tree event delegation setup complete');
+}
+
+// Simplified menu system
+function setupMenuSystem() {
+  // Setup menu dropdowns
+  const menuItems = document.querySelectorAll('.menu-item');
+  
+  menuItems.forEach(menuItem => {
+    const menuLabel = menuItem.querySelector('.menu-label');
+    const dropdown = menuItem.querySelector('.dropdown-menu');
+    
+    if (menuLabel && dropdown) {
+      menuLabel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Close other dropdowns
+        document.querySelectorAll('.dropdown-menu').forEach(menu => {
+          if (menu !== dropdown) {
+            menu.classList.remove('show');
+            menu.parentElement.classList.remove('active');
+          }
+        });
+        
+        // Toggle current dropdown
+        const isShowing = dropdown.classList.toggle('show');
+        menuItem.classList.toggle('active', isShowing);
+      });
+    }
+  });
+
+  // Setup menu options
+  document.querySelectorAll('.menu-option').forEach(option => {
+    option.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const action = option.dataset.action;
+      handleMenuAction(action);
+      closeAllDropdowns();
+    });
+  });
+
+  // Close dropdowns when clicking outside
+  document.addEventListener('click', (e) => {
     if (!e.target.closest('.menu-item')) {
       closeAllDropdowns();
     }
-  };
-  document.addEventListener('click', globalClickListener);
-  
-  // Single global keyboard shortcut listener
-  globalKeyboardListener = (e) => {
+  });
+
+  // Setup keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey) {
       switch(e.key) {
         case 'n':
           e.preventDefault();
-          handleMenuAction('add-connection');
+          openAddConnectionWindow();
           break;
         case 'e':
           e.preventDefault();
@@ -228,22 +175,44 @@ function setupGlobalMenuListeners() {
           e.preventDefault();
           handleMenuAction('import-connections');
           break;
-        case '1':
-          e.preventDefault();
-          handleMenuAction('compact-mode');
-          break;
-        case '2':
-          e.preventDefault();
-          handleMenuAction('full-mode');
-          break;
         case 'r':
           e.preventDefault();
           handleMenuAction('refresh');
           break;
+        case 'q':
+          e.preventDefault();
+          handleMenuAction('exit');
+          break;
       }
     }
-  };
-  document.addEventListener('keydown', globalKeyboardListener);
+  });
+}
+
+
+// Window functions (using existing modals for now, will be converted to popups later)
+async function openAddConnectionWindow(preSelectedGroup = null) {
+  showAddConnectionForm(preSelectedGroup);
+}
+
+async function openEditWindow(connection) {
+  editConnection(connection.name, connection.group);
+}
+
+async function openDetailsWindow(connection) {
+  // For now, show an alert with basic details (will be replaced with popup window)
+  const details = [
+    `Connection: ${connection.name}`,
+    `Host: ${connection.user}@${connection.host}:${connection.port}`,
+    `Group: ${connection.group}`,
+    `Key: ${connection.keyFile || '~/.ssh/id_ed25519'}`,
+    `Source: ${connection.configPath || 'SSH Manager'}`,
+    `Managed: ${connection.managed ? 'Yes' : 'No (Read-Only)'}`
+  ].join('\n\n');
+  
+  const action = confirm(`${details}\n\n--- Quick Actions ---\n\nClick OK to connect, Cancel to close`);
+  if (action) {
+    connectToServer(connection.name, connection.group);
+  }
 }
 
 function closeAllDropdowns() {
@@ -253,99 +222,13 @@ function closeAllDropdowns() {
   });
 }
 
-function setupFullModeMenus() {
-  // Clear existing menu listeners before setting up new ones
-  clearMenuListeners();
-  
-  // Setup menus only for full mode (not in compact layout)
-  const fullModeMenus = document.querySelectorAll('.app-container > .app-header .menu-item');
-  setupMenusForElements(fullModeMenus, 'full');
-}
 
-function setupCompactMenus() {
-  // Clear existing menu listeners before setting up new ones
-  clearMenuListeners();
-  
-  // Setup menus only for compact mode (in compact layout)
-  const compactModeMenus = document.querySelectorAll('.compact-layout .menu-item');
-  setupMenusForElements(compactModeMenus, 'compact');
-}
 
-function clearMenuListeners() {
-  // Remove all existing menu event listeners
-  document.querySelectorAll('.menu-label').forEach(label => {
-    if (label._menuClickHandler) {
-      label.removeEventListener('click', label._menuClickHandler);
-      delete label._menuClickHandler;
-    }
-  });
-  
-  document.querySelectorAll('.menu-option').forEach(option => {
-    if (option._menuClickHandler) {
-      option.removeEventListener('click', option._menuClickHandler);
-      delete option._menuClickHandler;
-    }
-  });
-}
-
-function setupMenusForElements(menuItems, mode) {
-  menuItems.forEach((menuItem, index) => {
-    const menuLabel = menuItem.querySelector('.menu-label');
-    const dropdown = menuItem.querySelector('.dropdown-menu');
-    
-    if (!menuLabel || !dropdown) return;
-    
-    // Create a unique handler for this specific menu item
-    const handleMenuClick = (e) => {
-      e.stopPropagation();
-      
-      // Close other dropdowns
-      document.querySelectorAll('.dropdown-menu').forEach(menu => {
-        if (menu !== dropdown) {
-          menu.classList.remove('show');
-          menu.parentElement.classList.remove('active');
-        }
-      });
-      
-      // Toggle current dropdown
-      const isShowing = dropdown.classList.toggle('show');
-      menuItem.classList.toggle('active', isShowing);
-    };
-    
-    // Store reference and add new listener
-    menuLabel._menuClickHandler = handleMenuClick;
-    menuLabel.addEventListener('click', handleMenuClick);
-  });
-  
-  // Menu option click handlers within these specific menu items
-  menuItems.forEach(menuItem => {
-    const menuOptions = menuItem.querySelectorAll('.menu-option');
-    
-    menuOptions.forEach(option => {
-      // Create a unique handler for this specific option
-      const handleMenuOptionClick = (e) => {
-        e.stopPropagation();
-        const action = option.dataset.action;
-        
-        handleMenuAction(action);
-        closeAllDropdowns();
-      };
-      
-      // Store reference and add new listener
-      option._menuClickHandler = handleMenuOptionClick;
-      option.addEventListener('click', handleMenuOptionClick);
-    });
-  });
-}
 
 function handleMenuAction(action) {
   switch(action) {
     case 'add-connection':
-      // Switch to full mode for adding connections
-      if (AppState.viewMode === 'compact') {
-        AppState.setViewMode('full');
-      }
-      showAddConnectionForm();
+      openAddConnectionWindow();
       break;
       
     case 'export-connections':
@@ -362,16 +245,12 @@ function handleMenuAction(action) {
       showError('Settings coming soon!');
       break;
       
-    case 'compact-mode':
-      AppState.setViewMode('compact');
-      break;
-      
-    case 'full-mode':
-      AppState.setViewMode('full');
-      break;
-      
     case 'refresh':
       refreshAll();
+      break;
+      
+    case 'exit':
+      window.electronAPI.app.quit();
       break;
       
     default:
@@ -380,7 +259,7 @@ function handleMenuAction(action) {
 }
 
 function initializeDragAndDrop() {
-  // Initialize drop zones on group headers
+  // Initialize drop zones on group headers in both trees
   document.querySelectorAll('.tree-node-header').forEach(header => {
     // Remove existing listeners to avoid duplicates
     header.removeEventListener('dragover', handleDragOver);
@@ -394,12 +273,119 @@ function initializeDragAndDrop() {
     header.addEventListener('dragleave', handleDragLeave);
   });
   
-  // Ensure all connection items are properly draggable
+  // Ensure all connection items are properly draggable in both trees
   document.querySelectorAll('.connection-tree-item').forEach(item => {
     if (!item.draggable) {
       item.draggable = true;
     }
   });
+}
+
+// Initialize sidebar resizer functionality
+function initializeSidebarResizer() {
+  const splitter = document.getElementById('sidebar-splitter');
+  const sidebar = document.querySelector('.sidebar');
+  
+  if (!splitter || !sidebar) {
+    return; // Elements not found, probably in compact mode
+  }
+  
+  let isResizing = false;
+  let startX = 0;
+  let startWidth = 0;
+  
+  // Mouse down on splitter
+  splitter.addEventListener('mousedown', (e) => {
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = parseInt(getComputedStyle(sidebar).getPropertyValue('width'));
+    
+    splitter.classList.add('dragging');
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+    
+    e.preventDefault();
+  });
+  
+  // Mouse move - resize sidebar
+  document.addEventListener('mousemove', (e) => {
+    if (!isResizing) return;
+    
+    const deltaX = e.clientX - startX;
+    const newWidth = startWidth + deltaX;
+    
+    // Constrain to min/max widths
+    const minWidth = 200;
+    const maxWidth = Math.min(600, window.innerWidth * 0.6); // Max 60% of window width
+    const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    
+    sidebar.style.width = constrainedWidth + 'px';
+    
+    e.preventDefault();
+  });
+  
+  // Mouse up - stop resizing
+  document.addEventListener('mouseup', () => {
+    if (isResizing) {
+      isResizing = false;
+      splitter.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      
+      // Save the width to localStorage for persistence
+      const currentWidth = parseInt(getComputedStyle(sidebar).getPropertyValue('width'));
+      localStorage.setItem('sidebarWidth', currentWidth);
+    }
+  });
+  
+  // Restore saved width on app load
+  const savedWidth = localStorage.getItem('sidebarWidth');
+  if (savedWidth) {
+    const width = parseInt(savedWidth);
+    const minWidth = 200;
+    const maxWidth = 600;
+    if (width >= minWidth && width <= maxWidth) {
+      sidebar.style.width = width + 'px';
+    }
+  }
+}
+
+// Reset sidebar width to default
+function resetSidebarWidth() {
+  const sidebar = document.querySelector('.sidebar');
+  if (sidebar) {
+    sidebar.style.width = '250px'; // Default width
+    localStorage.setItem('sidebarWidth', '250');
+  }
+}
+
+// Initialize which groups should be expanded by default
+function initializeExpandedGroups() {
+  expandedGroups.clear();
+  
+  // Expand all groups by default for better UX
+  // Users can collapse them if they want
+  allGroups.forEach(groupPath => {
+    expandedGroups.add(groupPath);
+  });
+  
+  // Alternative approach: only expand groups that have connections or child groups
+  // (Uncomment this section if you prefer a more conservative approach)
+  /*
+  allGroups.forEach(groupPath => {
+    // Check if this group has connections
+    const hasConnections = allConnections.some(conn => conn.group === groupPath);
+    
+    // Check if this group has child groups (is a parent)
+    const hasChildGroups = allGroups.some(otherGroup => 
+      otherGroup !== groupPath && otherGroup.startsWith(groupPath + '/')
+    );
+    
+    if (hasConnections || hasChildGroups) {
+      expandedGroups.add(groupPath);
+    }
+  });
+  */
 }
 
 async function loadGroups() {
@@ -413,6 +399,10 @@ async function loadGroups() {
     if (groupsResult.success) {
       allGroups = groupsResult.data;
       groupsTree = treeResult.success ? treeResult.data : {};
+      
+      // Initialize expanded groups - expand all groups that have connections or nested groups
+      initializeExpandedGroups();
+      
       renderGroupTree();
     } else {
       showError('Failed to load groups: ' + groupsResult.error);
@@ -429,8 +419,13 @@ async function loadConnections() {
     
     if (result.success) {
       allConnections = result.data;
-      renderTreeConnections();
       updateConnectionCount();
+      
+      // Render connections
+      setTimeout(() => {
+        renderTreeConnections();
+      }, 100);
+      
       setStatus('Ready');
     } else {
       setStatus('Error loading connections: ' + result.error);
@@ -477,16 +472,25 @@ function renderGroupTree() {
   const container = document.getElementById('groups-tree');
   container.innerHTML = '';
   
-  // If we have a nested tree structure, use it; otherwise fall back to flat groups
-  if (Object.keys(groupsTree).length > 0) {
+  
+  // Check if we have nested group structure
+  const hasNestedStructure = groupsTree && Object.keys(groupsTree).length > 0;
+  
+  if (hasNestedStructure) {
+    // Use nested rendering for proper tree structure
     renderNestedGroupTree(container, groupsTree, 0);
   } else {
-    // Fallback to flat group structure for backward compatibility
+    // Fallback to flat structure
     allGroups.forEach(groupName => {
       const groupNode = createGroupNode(groupName, 0);
       container.appendChild(groupNode);
     });
   }
+  
+  // Re-setup event delegation after DOM changes
+  setupTreeEventDelegation();
+  
+  // Note: Connections will be rendered separately when loadConnections() is called
 }
 
 /**
@@ -524,37 +528,34 @@ function createNestedGroupNode(groupNode, depth) {
   treeNode.dataset.group = fullPath;
   treeNode.dataset.depth = depth;
   
-  // Calculate indentation (reduced for compact mode)
-  const isCompactMode = document.querySelector('.app-container.compact-mode') !== null;
-  const baseIndent = isCompactMode ? 12 : 20; // Reduced spacing for compact mode
+  // Calculate indentation - same for both modes
+  const baseIndent = 20; // Same spacing for both modes
   const indentPx = Math.max(8, depth * baseIndent + 8); // Minimum 8px padding
   const groupIcon = getGroupIcon(name);
   
   treeNode.innerHTML = `
     <div class="tree-node-header drop-zone ${isExistingGroup ? 'readonly-group' : ''}" style="padding-left: ${indentPx}px;">
-      <span class="tree-toggle ${hasChildren ? '' : 'no-children'}" data-group-path="${fullPath}">
-        ${hasChildren ? (isExpanded ? '▼' : '▶') : '•'}
+      <span class="tree-toggle" data-group-path="${fullPath}">
+        ${hasChildren ? (isExpanded ? '▼' : '▶') : '▶'}
       </span>
       <span class="group-icon">${groupIcon}</span>
       <span class="group-name" title="${fullPath}">${name}${isExistingGroup ? ' (Read-Only)' : ''}</span>
       <div class="group-actions">
-        ${!isExistingGroup ? `<button class="group-action-btn add-subgroup" title="Add Subgroup" onclick="showAddSubgroupForm('${fullPath}')">📁+</button>` : ''}
-        ${!isExistingGroup ? `<button class="group-action-btn add-connection" title="Add Connection" onclick="showAddConnectionForm('${fullPath}')">🖥️+</button>` : ''}
-        ${!isExistingGroup ? `<button class="group-action-btn edit" title="Rename Group" onclick="showEditGroupForm('${fullPath}')">✏️</button>` : ''}
-        ${!isExistingGroup ? `<button class="group-action-btn delete" title="Delete Group" onclick="deleteGroup('${fullPath}')" ${!canDelete ? 'disabled' : ''}>🗑️</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Add Subgroup" data-group="${fullPath}" data-action="add-subgroup">📁+</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Add Connection" data-group="${fullPath}" data-action="add-connection">🖥️+</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Rename Group" data-group="${fullPath}" data-action="edit-group">✏️</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Delete Group" data-group="${fullPath}" data-action="delete-group" ${!canDelete ? 'disabled' : ''}>🗑️</button>` : ''}
       </div>
     </div>
-    <div class="tree-children" data-group="${fullPath}" ${!isExpanded ? 'style="display: none;"' : ''}></div>
+    <div class="tree-children" data-group="${fullPath}" style="display: ${isExpanded ? 'block' : 'none'};"></div>
   `;
   
-  // Add click handler for toggle
+  // Add click handler for toggle - ALL groups should be expandable, not just ones with children
   const toggle = treeNode.querySelector('.tree-toggle');
-  if (hasChildren) {
-    toggle.addEventListener('click', (e) => {
-      e.stopPropagation();
-      toggleNestedGroup(fullPath, treeNode);
-    });
-  }
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleNestedGroup(fullPath, treeNode);
+  });
   
   return treeNode;
 }
@@ -594,6 +595,9 @@ function toggleNestedGroup(groupPath, groupNode) {
     toggle.textContent = '▼';
     groupNode.classList.remove('collapsed');
     groupNode.classList.add('expanded');
+    
+    // Initialize drag and drop for newly created nested group headers
+    initializeDragAndDrop();
   }
   
   // Re-render connections for this group
@@ -601,24 +605,44 @@ function toggleNestedGroup(groupPath, groupNode) {
 }
 
 function renderTreeConnections() {
-  allGroups.forEach(group => {
-    const container = document.querySelector(`[data-group="${group}"].tree-children`);
-    if (!container) return;
+  if (allConnections.length === 0) {
+    return;
+  }
+  
+  let totalConnectionsAdded = 0;
+  
+  // Get all unique group paths from actual connections, not just allGroups
+  const connectionGroups = [...new Set(allConnections.map(conn => conn.group))];
+  
+  // Ensure all parent groups of connections are expanded so containers exist
+  connectionGroups.forEach(group => {
+    expandGroupPath(group);
+  });
+  
+  connectionGroups.forEach(group => {
+    // Look for containers in both full mode and compact mode trees
+    const containers = document.querySelectorAll(`[data-group="${group}"].tree-children`);
     
-    const connections = allConnections.filter(conn => conn.group === group);
-    
-    container.innerHTML = '';
-    
-    if (connections.length === 0) {
-      container.classList.add('empty');
-    } else {
-      container.classList.remove('empty');
+    containers.forEach(container => {
+      const connections = allConnections.filter(conn => conn.group === group);
       
-      connections.forEach(connection => {
-        const item = createConnectionTreeItem(connection);
-        container.appendChild(item);
-      });
-    }
+      // Clear existing connections but preserve any nested group nodes
+      const existingConnections = container.querySelectorAll('.connection-tree-item');
+      existingConnections.forEach(item => item.remove());
+      
+      if (connections.length === 0) {
+        container.classList.add('empty');
+      } else {
+        container.classList.remove('empty');
+        
+        connections.forEach((connection, index) => {
+          const groupDepth = getGroupDepth(group);
+          const item = createConnectionTreeItem(connection, groupDepth);
+          container.appendChild(item);
+          totalConnectionsAdded++;
+        });
+      }
+    });
   });
   
   // Initialize drag and drop after rendering all connections
@@ -633,42 +657,31 @@ function renderTreeConnections() {
  * Render connections for a specific group (used by nested tree)
  */
 function renderConnectionsForGroup(groupPath) {
-  const container = document.querySelector(`[data-group="${groupPath}"].tree-children`);
-  if (!container) return;
+  // Look for containers in both full mode and compact mode trees
+  const containers = document.querySelectorAll(`[data-group="${groupPath}"].tree-children`);
+  if (containers.length === 0) return;
   
   const connections = allConnections.filter(conn => conn.group === groupPath);
   
-  // Clear existing connections (but keep nested groups)
-  const connectionElements = container.querySelectorAll('.connection-item');
-  connectionElements.forEach(el => el.remove());
-  
-  connections.forEach(connection => {
-    const connectionNode = createConnectionTreeItem(connection);
-    container.appendChild(connectionNode);
+  containers.forEach(container => {
+    // Clear existing connections (but keep nested groups)
+    const connectionElements = container.querySelectorAll('.connection-tree-item');
+    connectionElements.forEach(el => el.remove());
+    
+    connections.forEach(connection => {
+      const groupDepth = getGroupDepth(groupPath);
+      const connectionNode = createConnectionTreeItem(connection, groupDepth);
+      container.appendChild(connectionNode);
+    });
   });
+  
+  // Initialize drag and drop for newly created connection items
+  initializeDragAndDrop();
 }
 
 /**
  * Render connections in compact mode for all groups
  */
-function renderCompactConnections() {
-  // Render connections for all groups in the compact tree
-  allGroups.forEach(group => {
-    const container = document.querySelector(`#groups-tree-compact [data-group="${group}"].tree-children`);
-    if (!container) return;
-    
-    const connections = allConnections.filter(conn => conn.group === group);
-    
-    // Clear existing connections (but keep nested groups)
-    const connectionElements = container.querySelectorAll('.connection-item');
-    connectionElements.forEach(el => el.remove());
-    
-    connections.forEach(connection => {
-      const connectionNode = createConnectionTreeItem(connection);
-      container.appendChild(connectionNode);
-    });
-  });
-}
 
 function createGroupNode(groupName, depth = 0) {
   const groupNode = document.createElement('div');
@@ -686,11 +699,13 @@ function createGroupNode(groupName, depth = 0) {
       <span class="group-icon">${groupIcon}</span>
       <span class="group-name">${groupName}${isExistingGroup ? ' (Read-Only)' : ''}</span>
       <div class="group-actions">
-        ${!isExistingGroup ? `<button class="group-action-btn edit" title="Rename Group" onclick="showEditGroupForm('${groupName}')">✏️</button>` : ''}
-        ${!isExistingGroup ? `<button class="group-action-btn delete" title="Delete Group" onclick="deleteGroup('${groupName}')" ${!canDelete ? 'disabled' : ''}>🗑️</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Add Subgroup" data-group="${groupName}" data-action="add-subgroup">📁+</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Add Connection" data-group="${groupName}" data-action="add-connection">🖥️+</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Rename Group" data-group="${groupName}" data-action="edit-group">✏️</button>` : ''}
+        ${!isExistingGroup ? `<button class="group-action-btn" title="Delete Group" data-group="${groupName}" data-action="delete-group" ${!canDelete ? 'disabled' : ''}>🗑️</button>` : ''}
       </div>
     </div>
-    <div class="tree-children" data-group="${groupName}"></div>
+    <div class="tree-children" data-group="${groupName}" style="display: block;"></div>
   `;
   
   const toggle = groupNode.querySelector('.tree-toggle');
@@ -717,7 +732,15 @@ function getGroupIcon(groupName) {
   return icons[groupName] || '📁';
 }
 
-function createConnectionTreeItem(connection) {
+function getGroupDepth(groupPath) {
+  // Calculate depth based on forward slashes in the path
+  // Top-level groups (like "work") have depth 0
+  // Second-level groups (like "work/company-a") have depth 1
+  // Third-level groups (like "work/company-a/dev") have depth 2
+  return groupPath.split('/').length - 1;
+}
+
+function createConnectionTreeItem(connection, groupDepth = null) {
   const item = document.createElement('div');
   const isExisting = !connection.managed;
   item.className = `connection-tree-item ${isExisting ? 'readonly-connection' : ''}`;
@@ -726,9 +749,21 @@ function createConnectionTreeItem(connection) {
   item.dataset.group = connection.group;
   item.dataset.isExisting = isExisting;
   
+  // Calculate connection indentation based on group depth
+  let connectionIndent = '';
+  if (groupDepth !== null) {
+    // Connections should be indented more than their parent group header
+    // Group header: depth * 20 + 8, Connection: depth * 20 + 8 + 24 (extra indent for hierarchy)
+    const baseIndent = 20;
+    const connectionExtraIndent = 24; // Additional indent to show connections are children of groups
+    const indentPx = Math.max(32, groupDepth * baseIndent + 8 + connectionExtraIndent);
+    connectionIndent = `margin-left: ${indentPx}px;`;
+  }
+  
   const icon = isExisting ? '🔒' : '🖥️';
   const nameDisplay = isExisting ? `${connection.name} (Read-Only)` : connection.name;
   
+  item.style.cssText = connectionIndent;
   item.innerHTML = `
     <span class="connection-icon">${icon}</span>
     <span class="connection-name">${nameDisplay}</span>
@@ -761,13 +796,32 @@ function selectConnection(name, group) {
     item.classList.add('selected');
     selectedConnection = allConnections.find(c => c.name === name && c.group === group);
     
-    // Update app state for compact mode
-    AppState.setSelectedConnection(selectedConnection);
+    // Update action buttons
+    updateActionButtons();
+  }
+}
+
+function updateActionButtons() {
+  const connectBtn = document.getElementById('connect-btn');
+  const detailsBtn = document.getElementById('details-btn');
+  const editBtn = document.getElementById('edit-btn');
+  const connectionText = document.querySelector('.connection-text');
+  
+  if (selectedConnection) {
+    connectBtn.disabled = false;
+    detailsBtn.disabled = false;
+    editBtn.disabled = false;
     
-    // Show details in full mode
-    if (AppState.viewMode === 'full') {
-      showConnectionDetails(selectedConnection);
-    }
+    const displayText = `${selectedConnection.user}@${selectedConnection.host}:${selectedConnection.port}`;
+    connectionText.textContent = displayText;
+    connectionText.classList.add('has-selection');
+  } else {
+    connectBtn.disabled = true;
+    detailsBtn.disabled = true;
+    editBtn.disabled = true;
+    
+    connectionText.textContent = 'Select a connection';
+    connectionText.classList.remove('has-selection');
   }
 }
 
@@ -902,7 +956,23 @@ function showConnectionDetails(connection) {
 }
 
 function toggleGroup(groupNode) {
-  groupNode.classList.toggle('collapsed');
+  const isCollapsed = groupNode.classList.contains('collapsed');
+  const childrenContainer = groupNode.querySelector('.tree-children');
+  const toggle = groupNode.querySelector('.tree-toggle');
+  
+  if (isCollapsed) {
+    // Expand
+    groupNode.classList.remove('collapsed');
+    groupNode.classList.add('expanded');
+    childrenContainer.style.display = 'block';
+    toggle.textContent = '▼';
+  } else {
+    // Collapse
+    groupNode.classList.remove('expanded');
+    groupNode.classList.add('collapsed');
+    childrenContainer.style.display = 'none';
+    toggle.textContent = '▶';
+  }
 }
 
 function filterConnections() {
@@ -940,9 +1010,11 @@ function handleDragOver(e) {
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
   
-  const targetGroup = e.currentTarget.closest('.tree-node').dataset.group;
+  const treeNode = e.currentTarget.closest('.tree-node');
+  const targetGroup = treeNode ? treeNode.dataset.group : null;
+  
   // Don't allow dropping to existing group or same group
-  if (draggedConnection && targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
+  if (draggedConnection && targetGroup && targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
     e.currentTarget.classList.add('drag-over');
   }
 }
@@ -957,10 +1029,11 @@ async function handleDrop(e) {
   
   if (!draggedConnection) return;
   
-  const targetGroup = e.currentTarget.closest('.tree-node').dataset.group;
+  const treeNode = e.currentTarget.closest('.tree-node');
+  const targetGroup = treeNode ? treeNode.dataset.group : null;
   
   // Don't allow dropping to existing group or same group
-  if (targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
+  if (targetGroup && targetGroup !== draggedConnection.group && targetGroup !== 'existing') {
     const isExistingConnection = draggedConnection.group === 'existing' || draggedConnection.isExisting === 'true';
     
     if (isExistingConnection) {
@@ -980,7 +1053,13 @@ async function migrateExistingConnection(connectionName, toGroup) {
     const result = await window.electronAPI.ssh.migrateExistingConnection(connectionName, toGroup);
     
     if (result.success) {
+      // Reload both groups and connections to ensure nested groups are properly loaded
+      await loadGroups();
       await loadConnections();
+      
+      // Expand the target group to show the migrated connection
+      expandGroupPath(toGroup);
+      
       setStatus(`Migrated ${connectionName} to ${toGroup} successfully`);
       showSuccess(`Connection "${connectionName}" migrated to ${toGroup} group! The original entry in ~/.ssh/config has been commented out.`);
       
@@ -1020,7 +1099,18 @@ async function moveConnectionToGroup(name, fromGroup, toGroup) {
     const result = await window.electronAPI.ssh.addConnection(newConnection);
     
     if (result.success) {
+      // Reload both groups and connections to ensure nested groups are properly loaded
+      await loadGroups();
       await loadConnections();
+      
+      // Expand the target group to show the moved connection
+      expandGroupPath(toGroup);
+      
+      // Select the moved connection
+      setTimeout(() => {
+        selectConnection(name, toGroup);
+      }, 500);
+      
       setStatus(`Moved ${name} to ${toGroup} successfully`);
       showSuccess(`Connection "${name}" moved to ${toGroup} group!`);
     } else {
@@ -1054,12 +1144,22 @@ function showAddConnectionForm(preSelectedGroup = null) {
 }
 
 function showAddSubgroupForm(parentGroupPath = '') {
-  // For now, use a simple prompt - in Phase 3 we can create a proper modal
-  const subgroupName = prompt(`Enter subgroup name${parentGroupPath ? ` (under ${parentGroupPath})` : ''}:`);
+  // Use a more user-friendly prompt with better guidance
+  const promptMessage = parentGroupPath 
+    ? `Create a new subgroup under "${parentGroupPath}"\n\nEnter subgroup name:`
+    : 'Create a new group\n\nEnter group name:';
+  
+  const subgroupName = prompt(promptMessage);
   
   if (subgroupName && subgroupName.trim()) {
-    const fullPath = parentGroupPath ? `${parentGroupPath}/${subgroupName.trim()}` : subgroupName.trim();
+    const cleanName = subgroupName.trim().toLowerCase().replace(/[^a-z0-9-_\/]/g, '-');
+    const fullPath = parentGroupPath ? `${parentGroupPath}/${cleanName}` : cleanName;
+    
+    console.log('Creating subgroup:', { parentGroupPath, subgroupName, cleanName, fullPath });
     handleAddSubgroup(fullPath);
+  } else if (subgroupName !== null) {
+    // User clicked OK but entered empty/invalid name
+    showError('Please enter a valid group name (letters, numbers, hyphens, underscores only)');
   }
 }
 
@@ -1665,14 +1765,14 @@ async function confirmMigration(connectionName) {
   }
 }
 
-// Global function exports for HTML onclick handlers
+// Global function exports for HTML onclick handlers (keeping some for modal functions)
 window.showAddConnectionForm = showAddConnectionForm;
 window.hideAddConnectionForm = hideAddConnectionForm;
-window.showAddSubgroupForm = showAddSubgroupForm;
 window.showAddGroupForm = showAddGroupForm;
 window.hideAddGroupForm = hideAddGroupForm;
 window.showEditGroupForm = showEditGroupForm;
 window.hideEditGroupForm = hideEditGroupForm;
+// Group action buttons now use event delegation instead of inline onclick
 // Phase 2: Helper functions for developer features
 function validatePhase2Fields(formData) {
   const errors = [];

@@ -17,15 +17,104 @@ body {
   height: 100vh;
 }
 
+/* Main content area - simplified single view */
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+  overflow: hidden;
+}
+
+/* Sidebar section - groups and connections */
+.sidebar-section {
+  flex: 1;
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  overflow-y: auto;
+}
+
+/* Action bar at bottom */
+.action-bar {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn-primary {
+  background: #3498db;
+  color: white;
+  font-weight: 600;
+}
+
+.action-btn-primary:hover:not(:disabled) {
+  background: #2980b9;
+}
+
+.action-btn-secondary {
+  background: #ecf0f1;
+  color: #2c3e50;
+  border: 1px solid #bdc3c7;
+}
+
+.action-btn-secondary:hover:not(:disabled) {
+  background: #d5dbdb;
+}
+
+.connection-info {
+  text-align: center;
+  border-top: 1px solid #ecf0f1;
+  padding-top: 12px;
+  margin-top: 4px;
+}
+
+.connection-text {
+  color: #7f8c8d;
+  font-size: 14px;
+}
+
+.connection-text.has-selection {
+  color: #2c3e50;
+  font-weight: 500;
+}
+
 /* Header */
 .app-header {
   background: #2c3e50;
   color: white;
   padding: 16px 24px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   border-bottom: 1px solid #34495e;
-  gap: 24px;
+  gap: 8px;
 }
 
 .app-header h1 {
@@ -38,7 +127,7 @@ body {
 .menu-bar {
   display: flex;
   gap: 16px;
-  margin-left: 24px;
+  margin-left: 0;
 }
 
 .menu-item {
@@ -150,10 +239,58 @@ body {
 /* Sidebar */
 .sidebar {
   width: 250px;
+  min-width: 200px;
+  max-width: 600px;
   background: white;
   border-right: 1px solid #ddd;
   padding: 16px;
   overflow-y: auto;
+  flex-shrink: 0;
+}
+
+/* Sidebar Splitter */
+.sidebar-splitter {
+  width: 4px;
+  background: #ddd;
+  cursor: ew-resize;
+  border-left: 1px solid #bbb;
+  border-right: 1px solid #fff;
+  position: relative;
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.sidebar-splitter:hover {
+  background: #007acc;
+}
+
+.sidebar-splitter.dragging {
+  background: #007acc;
+  transition: none;
+}
+
+/* Add subtle grip indicator */
+.sidebar-splitter::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 2px;
+  height: 20px;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 2px,
+    #999 2px,
+    #999 4px
+  );
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.sidebar-splitter:hover::after {
+  opacity: 1;
 }
 
 .sidebar-section {
@@ -271,7 +408,7 @@ body {
 }
 
 .tree-node.collapsed .tree-children {
-  display: none;
+  display: none !important;
 }
 
 .group-icon {
@@ -321,6 +458,7 @@ body {
   opacity: 0.5;
   transform: rotate(2deg);
   z-index: 1000;
+  transition: none !important; /* Remove transition for immediate drag feedback */
 }
 
 /* Read-Only Styles */
@@ -558,13 +696,12 @@ body {
   display: none;
 }
 
-/* Connection items in nested groups */
-.nested-group .connection-tree-item {
-  margin-left: 20px;
+/* Connection items in nested groups - indentation handled by JavaScript */
+.connection-tree-item {
   border-left: 2px solid transparent;
 }
 
-.nested-group .connection-tree-item:hover {
+.connection-tree-item:hover {
   border-left-color: #3498db;
 }
 
@@ -811,7 +948,7 @@ body {
   display: none;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 20000;
 }
 
 .modal.active {
@@ -946,7 +1083,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 1000;
+  z-index: 20000;
 }
 
 .modal-content {
@@ -1151,7 +1288,7 @@ select[title]:focus {
 /* Position menus under title in compact mode */
 .compact-layout .menu-bar {
   margin-left: 0;
-  gap: 12px;
+  gap: 16px;
 }
 
 .compact-content {
@@ -1168,6 +1305,23 @@ select[title]:focus {
   background: white;
 }
 
+.compact-sidebar .sidebar-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.compact-sidebar .sidebar-section .section-header {
+  flex-shrink: 0;
+}
+
+.compact-sidebar .sidebar-section .tree-container {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
 /* Fix menu dropdown positioning in compact mode */
 .compact-layout .dropdown-menu {
   position: absolute;
@@ -1179,13 +1333,19 @@ select[title]:focus {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   min-width: 200px;
   max-width: 350px; /* Prevent overflow in compact mode */
-  z-index: 10001;
+  z-index: 15000;
   display: none;
 }
 
 /* Make compact mode dropdowns visible when show class is added */
 .compact-layout .dropdown-menu.show {
   display: block;
+}
+
+/* Ensure modals are visible in compact mode */
+.app-container.compact-mode .modal,
+.app-container.compact-mode .modal-overlay {
+  z-index: 25000;
 }
 
 /* Hide original layout in compact mode */
@@ -1269,86 +1429,7 @@ select[title]:focus {
   font-weight: 500;
 }
 
-/* Compact mode tree adjustments */
-.app-container.compact-mode .tree-container {
-  max-height: 300px;
-  overflow-y: auto;
-}
+/* Compact mode tree adjustments - now handled by more specific selector above */
 
-/* Compact Mode Nested Group Optimizations */
-
-/* Reduce indentation for compact mode */
-.app-container.compact-mode .nested-group .tree-node-header {
-  padding-left: 8px; /* Override individual padding-left set by JS */
-}
-
-/* Reduce depth-based indentation in compact mode */
-.app-container.compact-mode .depth-0 .tree-node-header { padding-left: 8px !important; }
-.app-container.compact-mode .depth-1 .tree-node-header { padding-left: 20px !important; }
-.app-container.compact-mode .depth-2 .tree-node-header { padding-left: 32px !important; }
-.app-container.compact-mode .depth-3 .tree-node-header { padding-left: 44px !important; }
-
-/* Smaller toggle buttons in compact mode */
-.app-container.compact-mode .tree-toggle {
-  min-width: 12px;
-  font-size: 10px;
-  margin-right: 6px;
-}
-
-/* Smaller group icons and text in compact mode */
-.app-container.compact-mode .group-icon {
-  font-size: 12px;
-  margin-right: 6px;
-}
-
-.app-container.compact-mode .group-name {
-  font-size: 13px;
-  max-width: 120px; /* Increase from default for longer paths */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* Smaller action buttons in compact mode */
-.app-container.compact-mode .group-action-btn {
-  padding: 1px 3px;
-  font-size: 10px;
-  margin-left: 2px;
-}
-
-/* Reduce spacing between tree items in compact mode */
-.app-container.compact-mode .tree-node {
-  margin-bottom: 1px;
-}
-
-.app-container.compact-mode .tree-node-header {
-  padding: 4px 8px;
-  min-height: 24px;
-}
-
-/* Hide some tree lines in compact mode for cleaner look */
-.app-container.compact-mode .nested-group::before {
-  display: none;
-}
-
-.app-container.compact-mode .nested-group .tree-node-header::before {
-  display: none;
-}
-
-/* More compact connection items */
-.app-container.compact-mode .connection-tree-item {
-  padding: 2px 6px;
-  font-size: 12px;
-  margin-left: 10px; /* Reduce from 20px */
-  margin-bottom: 1px;
-}
-
-/* Optimize group actions visibility */
-.app-container.compact-mode .group-actions {
-  gap: 2px;
-}
-
-.app-container.compact-mode .tree-node-header:hover .group-actions {
-  opacity: 1;
-}
+/* Removed compact mode tree overrides - left pane should look identical in both modes */
 }

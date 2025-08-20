@@ -226,3 +226,31 @@ ipcMain.handle('window:resize', async (event, width, height) => {
     return { success: false, error: error.message };
   }
 });
+
+ipcMain.handle('app:quit', async () => {
+  try {
+    app.quit();
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Window management handlers
+ipcMain.handle('window:open-connection-form', async (event, options) => {
+  try {
+    return { success: true, message: 'Popup functionality will be implemented with existing modals for now' };
+  } catch (error) {
+    console.error('Failed to open connection form:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('window:open-connection-details', async (event, options) => {
+  try {
+    return { success: true, message: 'Popup functionality will be implemented with existing modals for now' };
+  } catch (error) {
+    console.error('Failed to open connection details:', error);
+    return { success: false, error: error.message };
+  }
+});

@@ -23,6 +23,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     saveFile: (options) => ipcRenderer.invoke('dialog:save-file', options)
   },
   window: {
-    resize: (width, height) => ipcRenderer.invoke('window:resize', width, height)
+    resize: (width, height) => ipcRenderer.invoke('window:resize', width, height),
+    openConnectionForm: (options) => ipcRenderer.invoke('window:open-connection-form', options),
+    openConnectionDetails: (options) => ipcRenderer.invoke('window:open-connection-details', options)
+  },
+  app: {
+    quit: () => ipcRenderer.invoke('app:quit')
   }
 });
