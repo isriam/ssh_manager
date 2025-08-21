@@ -228,7 +228,6 @@ class SSHManager {
 
   async updateMainSSHConfig() {
     const currentConfig = await this.fileUtils.readMainConfig();
-    await this.fileUtils.backupMainConfig();
 
     const includeDirective = `Include ${this.fileUtils.getSSHManagerPath()}/config/*/*.conf`;
     const lines = currentConfig.split('\n');
@@ -979,13 +978,7 @@ class SSHManager {
       throw new Error(`Connection '${name}' not found in group '${group}'`);
     }
 
-    // First validate the connection
-    const testResult = await this.testConnection(name, group);
-    if (!testResult.configValid) {
-      throw new Error(`Cannot connect - configuration is invalid: ${testResult.message}`);
-    }
-
-    // Get the SSH command
+    // Get the SSH command (skip validation - let SSH handle connection errors directly)
     const sshCommand = await this.getConnectionSSHCommand(name, group);
     
     // Launch SSH connection in terminal

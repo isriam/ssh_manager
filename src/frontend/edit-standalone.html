@@ -258,6 +258,8 @@
       try {
         const result = await window.electronAPI.ssh.updateConnection(originalName, originalGroup, options);
         if (result.success) {
+          // Refresh the main window before closing
+          await window.electronAPI.window.refreshMain();
           window.close();
         } else {
           alert('Error: ' + result.error);

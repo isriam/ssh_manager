@@ -29,7 +29,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     openConnectionForm: (options) => ipcRenderer.invoke('window:open-connection-form', options),
     openConnectionDetails: (options) => ipcRenderer.invoke('window:open-connection-details', options),
     openEditModal: (connectionData) => ipcRenderer.invoke('window:open-edit-modal', connectionData),
-    openAddModal: () => ipcRenderer.invoke('window:open-add-modal')
+    openAddModal: () => ipcRenderer.invoke('window:open-add-modal'),
+    refreshMain: () => ipcRenderer.invoke('window:refresh-main')
   },
   app: {
     quit: () => ipcRenderer.invoke('app:quit')

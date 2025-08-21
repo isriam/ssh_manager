@@ -416,3 +416,16 @@ ipcMain.handle('window:open-add-modal', async (event) => {
     return { success: false, error: error.message };
   }
 });
+
+ipcMain.handle('window:refresh-main', async (event) => {
+  try {
+    if (mainWindow) {
+      mainWindow.webContents.send('refresh-connections');
+      return { success: true };
+    }
+    return { success: false, error: 'Main window not available' };
+  } catch (error) {
+    console.error('Failed to refresh main window:', error);
+    return { success: false, error: error.message };
+  }
+});

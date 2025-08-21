@@ -15,6 +15,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Initialize menu system
   setupMenuSystem();
+  
+  // Listen for refresh requests from other windows
+  window.electronAPI.ipc.on('refresh-connections', async () => {
+    await loadGroups();
+    await loadConnections();
+  });
 });
 
 function initializeEventListeners() {
@@ -65,6 +71,43 @@ function handleEdit() {
   }
 }
 
+// Inline action handlers for connection buttons
+function handleConnectAction(name, group) {
+  connectToServer(name, group);
+}
+
+function handleEditAction(name, group) {
+  openEditWindow({ name, group });
+}
+
+async function handleDeleteAction(name, group) {
+  if (confirm(`Are you sure you want to delete the connection "${name}"?`)) {
+    try {
+      setStatus('Deleting connection...');
+      const result = await window.electronAPI.ssh.removeConnection(name, group);
+      
+      if (result.success) {
+        await loadGroups();
+        await loadConnections();
+        setStatus('Connection deleted successfully');
+        showSuccess(`Connection "${name}" deleted successfully!`);
+        
+        // Clear selection if deleted connection was selected
+        if (selectedConnection && selectedConnection.name === name && selectedConnection.group === group) {
+          selectedConnection = null;
+          updateActionButtons();
+        }
+      } else {
+        setStatus('Error deleting connection');
+        showError('Failed to delete connection: ' + result.error);
+      }
+    } catch (error) {
+      setStatus('Error: ' + error.message);
+      showError('Failed to delete connection: ' + error.message);
+    }
+  }
+}
+
 // Setup simplified tree event delegation
 function setupTreeEventDelegation() {
   const treeContainer = document.getElementById('groups-tree');
@@ -87,8 +130,6 @@ function setupTreeEventDelegation() {
       const action = e.target.dataset.action;
       const groupPath = e.target.dataset.group;
       
-      console.log('Tree action:', { action, groupPath });
-      
       switch (action) {
         case 'add-subgroup':
           showAddSubgroupForm(groupPath);
@@ -105,6 +146,28 @@ function setupTreeEventDelegation() {
         default:
           console.warn('Unknown tree action:', action);
       }
+    }
+    
+    // Handle connection action buttons
+    if (e.target.matches('.connect-action')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const { name, group } = e.target.dataset;
+      handleConnectAction(name, group);
+    }
+    
+    if (e.target.matches('.edit-action')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const { name, group } = e.target.dataset;
+      handleEditAction(name, group);
+    }
+    
+    if (e.target.matches('.delete-action')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const { name, group } = e.target.dataset;
+      handleDeleteAction(name, group);
     }
   };
   
@@ -825,10 +888,21 @@ function createConnectionTreeItem(connection, groupDepth = null) {
     <span class="connection-icon">${icon}</span>
     <span class="connection-name">${nameDisplay}</span>
     <span class="connection-details-mini">${connection.user}@${connection.host}</span>
+    ${!isExisting ? `
+    <span class="connection-actions">
+      <button class="action-btn-mini connect-action" data-name="${connection.name}" data-group="${connection.group}" title="Connect">🚀</button>
+      <button class="action-btn-mini edit-action" data-name="${connection.name}" data-group="${connection.group}" title="Edit">✏️</button>
+      <button class="action-btn-mini delete-action" data-name="${connection.name}" data-group="${connection.group}" title="Delete">🗑️</button>
+    </span>
+    ` : ''}
   `;
   
   // Add event listeners
   item.addEventListener('click', (e) => {
+    // Don't select connection if clicking on action buttons
+    if (e.target.closest('.action-btn-mini')) {
+      return;
+    }
     e.stopPropagation();
     selectConnection(connection.name, connection.group);
   });
@@ -1222,46 +1296,30 @@ async function showAddConnectionForm(preSelectedGroup = null) {
 }
 
 function showAddSubgroupForm(parentGroupPath = '') {
-  // Use a more user-friendly prompt with better guidance
-  const promptMessage = parentGroupPath 
-    ? `Create a new subgroup under "${parentGroupPath}"\n\nEnter subgroup name:`
-    : 'Create a new group\n\nEnter group name:';
+  // Use the existing add group modal instead of prompt
+  const modal = document.getElementById('add-group-modal');
+  const input = document.getElementById('group-name');
+  const title = modal.querySelector('.modal-header h3');
   
-  const subgroupName = prompt(promptMessage);
-  
-  if (subgroupName && subgroupName.trim()) {
-    const cleanName = subgroupName.trim().toLowerCase().replace(/[^a-z0-9-_\/]/g, '-');
-    const fullPath = parentGroupPath ? `${parentGroupPath}/${cleanName}` : cleanName;
-    
-    console.log('Creating subgroup:', { parentGroupPath, subgroupName, cleanName, fullPath });
-    handleAddSubgroup(fullPath);
-  } else if (subgroupName !== null) {
-    // User clicked OK but entered empty/invalid name
-    showError('Please enter a valid group name (letters, numbers, hyphens, underscores only)');
+  if (parentGroupPath) {
+    title.textContent = `Add Subgroup to "${parentGroupPath}"`;
+    input.value = `${parentGroupPath}/`;
+    input.placeholder = `${parentGroupPath}/new-subgroup`;
+    // Position cursor after the parent path
+    setTimeout(() => {
+      input.focus();
+      input.setSelectionRange(input.value.length, input.value.length);
+    }, 100);
+  } else {
+    title.textContent = 'Add New Group';
+    input.value = '';
+    input.placeholder = 'e.g., work, clients/internal, servers/production';
+    setTimeout(() => input.focus(), 100);
   }
+  
+  modal.classList.add('active');
 }
 
-async function handleAddSubgroup(groupPath) {
-  try {
-    setStatus('Creating subgroup...');
-    const result = await window.electronAPI.ssh.createGroup(groupPath);
-    
-    if (result.success) {
-      setStatus(`Subgroup "${groupPath}" created successfully`);
-      await loadGroups();
-      await loadConnections();
-      
-      // Expand parent groups to show the new subgroup
-      expandGroupPath(groupPath);
-    } else {
-      setStatus(`Error: ${result.error}`);
-      showError(`Failed to create subgroup: ${result.error}`);
-    }
-  } catch (error) {
-    setStatus(`Error: ${error.message}`);
-    showError(`Failed to create subgroup: ${error.message}`);
-  }
-}
 
 function expandGroupPath(groupPath) {
   const pathParts = groupPath.split('/');
@@ -1342,6 +1400,7 @@ async function handleAddConnection(e) {
     
     if (result.success) {
       hideAddConnectionForm();
+      await loadGroups();
       await loadConnections();
       setStatus('Connection added successfully');
       showSuccess(`Connection "${options.name}" added successfully!`);
@@ -1604,6 +1663,7 @@ async function handleEditConnection(e) {
     }
     
     hideEditConnectionForm();
+    await loadGroups();
     await loadConnections();
     setStatus('Connection updated successfully');
     showSuccess(`Connection "${updates.name}" updated successfully!`);
