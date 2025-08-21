@@ -43,7 +43,7 @@ ssh-manager create-shortcut  # Creates desktop shortcut
 - **SOCKS Proxy**: Dynamic port forwarding for secure tunneling
 - **Templates**: Pre-built configurations (Basic Server, Developer Workstation, AWS EC2, Jump Host)
 - **SSH Key Management**: Generate, import, and assign SSH keys
-- **Import/Export**: Backup and restore configurations
+- **Export Configurations**: Export SSH configurations as text files for backup purposes
 - **Connection Testing**: Verify SSH connectivity
 - **Cross-Platform Distribution**: macOS, Windows, and Linux packages
 
@@ -77,8 +77,7 @@ SSH Manager creates an organized structure in your home directory:
 │   ├── personal/       # Personal servers
 │   └── projects/       # Project-specific connections
 ├── keys/               # SSH key files organized by category
-├── templates/          # Configuration templates
-└── backups/           # Automatic configuration backups
+└── templates/          # Configuration templates
 ```
 
 Your main SSH config (`~/.ssh/config`) will include these organized files automatically.

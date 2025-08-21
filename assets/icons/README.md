@@ -16,16 +16,18 @@ For proper packaging, the following icon files are needed:
 
 ## Icon Design Guidelines
 
-The SSH Manager icon should represent:
-- Network/connectivity (SSH tunnels, connections)
-- Security (keys, locks, shields)
-- Management/organization (folders, lists)
+The SSH Manager icon represents:
+- **Terminal aesthetic**: Dark terminal window background
+- **SSH identity**: ">_ssh" prompt text in terminal green
+- **Security**: Golden key icon indicating SSH key management
+- **Management**: "manager" subtitle showing it's a management tool
 
-Suggested design elements:
-- Terminal/command line aesthetics
-- Network nodes or connection lines
-- Key or lock symbol
-- Clean, modern design suitable for developer tools
+Current design elements:
+- Dark terminal window with rounded corners
+- Green terminal text: ">_ssh 🔑"
+- White subtitle: "manager" 
+- Terminal cursor for active/live feel
+- Clean, professional design for developer tools
 
 ## Generation Tools
 
@@ -34,6 +36,11 @@ You can create `.icns` files from PNG sources using:
 - Online converters
 - Design tools like Sketch, Figma with icon export plugins
 
-## Temporary Placeholder
+## Current Icons
 
-Currently using placeholder icons. Replace these with proper branded icons before release.
+SSH Manager now has custom branded icons featuring:
+- Terminal window design with ">_ssh 🔑" and "manager" text
+- Cross-platform support with .png, .ico, and .icns formats
+- Multiple sizes from 16x16 to 512x512 for crisp display at any scale
+
+Generated using `create_ssh_manager_icon.py` and converted with `convert_icons.sh`.

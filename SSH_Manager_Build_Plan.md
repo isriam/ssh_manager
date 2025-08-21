@@ -47,7 +47,7 @@ A cross-platform GUI application for managing SSH configurations through organiz
 - [ ] Implement SSH config file reading/writing
 - [ ] Create template system for common configurations
 - [ ] Build SSH config validation and syntax checking
-- [ ] Implement backup/restore functionality
+- [ ] Implement export functionality for configuration text files
 
 #### 1.3 SSH Config Integration  
 - [ ] Parse existing `~/.ssh/config` file
@@ -92,7 +92,7 @@ A cross-platform GUI application for managing SSH configurations through organiz
 #### 3.2 Advanced GUI Features
 - [ ] **Visual SSH Key Management**: Generate/import/assign keys
 - [ ] **Configuration Validation**: Real-time form validation
-- [ ] **Import/Export**: Backup configurations to/from files
+- [ ] **Export**: Export configurations to text files for backup purposes
 - [ ] **Connection Testing**: Test SSH connectivity with status feedback
 - [ ] **Search/Filter**: Find servers quickly in large lists
 
@@ -191,12 +191,10 @@ ssh_manager/
 │   ├── work/
 │   ├── personal/
 │   └── projects/
-├── templates/
-│   ├── basic-server.conf
-│   ├── jump-host.conf
-│   └── port-forward.conf
-└── backups/
-    └── config-backups/
+└── templates/
+    ├── basic-server.conf
+    ├── jump-host.conf
+    └── port-forward.conf
 ```
 
 ## Success Criteria
