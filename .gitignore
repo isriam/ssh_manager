@@ -110,6 +110,13 @@ Thumbs.db
 test-configs/
 local-ssh-configs/
 
+# Session files and user data
+sessions/
+*.session
+.sessions/
+session-*.json
+user-sessions/
+
 # Temporary files
 *.tmp
 *.tempCLAUDE.md

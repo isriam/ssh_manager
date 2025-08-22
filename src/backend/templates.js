@@ -10,7 +10,7 @@ class Templates {
         content: `# Basic SSH Connection
 Host {{name}}
     HostName {{host}}
-    User {{user}}
+{{user_line}}
     Port {{port}}
     IdentityFile {{key_file}}
     
@@ -35,7 +35,7 @@ Host {{name}}
         content: `# Jump Host Configuration
 Host {{name}}
     HostName {{host}}
-    User {{user}}
+{{user_line}}
     Port {{port}}
     ProxyJump {{jump_host}}
     IdentityFile {{key_file}}
@@ -61,7 +61,7 @@ Host {{name}}
         content: `# Port Forwarding Configuration
 Host {{name}}
     HostName {{host}}
-    User {{user}}
+{{user_line}}
     Port {{port}}
     LocalForward {{local_port}} {{remote_host}}:{{remote_port}}
     IdentityFile {{key_file}}
@@ -87,7 +87,7 @@ Host {{name}}
         content: `# SSH Tunnel Configuration
 Host {{name}}
     HostName {{host}}
-    User {{user}}
+{{user_line}}
     Port {{port}}
     DynamicForward {{socks_port}}
     IdentityFile {{key_file}}
@@ -139,7 +139,7 @@ Host {{name}}
         content: `# Development Server
 Host {{name}}
     HostName {{host}}
-    User {{user}}
+{{user_line}}
     Port {{port}}
     IdentityFile {{key_file}}
     StrictHostKeyChecking no

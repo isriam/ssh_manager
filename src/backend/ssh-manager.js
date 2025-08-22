@@ -35,10 +35,12 @@ class SSHManager {
       throw new Error(`Connection '${name}' already exists in group '${group}'`);
     }
 
+    const currentUser = require('os').userInfo().username;
     const templateVariables = {
       name: name,
       host: host,
-      user: user || 'root',
+      user: user || currentUser,
+      user_line: user && user !== currentUser ? `    User ${user}` : '',
       port: port,
       key_file: keyFile || '~/.ssh/id_ed25519',
       jump_host: jumpHost || 'bastion.example.com',
@@ -70,7 +72,7 @@ class SSHManager {
     return {
       name,
       host,
-      user: user || 'root',
+      user: user || require('os').userInfo().username,
       port,
       group,
       configPath: this.fileUtils.getSSHManagerPath()
@@ -207,20 +209,43 @@ class SSHManager {
       throw new Error(`Connection '${name}' not found in group '${group}'`);
     }
 
-    const config = SSHConfig.parse(existingContent);
-    const hostSection = config.find({ Host: name });
+    // For comprehensive updates, it's better to regenerate the config from template
+    // This ensures all new options are properly formatted and included
+    const currentUser = require('os').userInfo().username;
+    const templateVariables = {
+      name: updates.name || name,
+      host: updates.host || 'localhost',
+      user: updates.user || currentUser,
+      user_line: updates.user && updates.user !== currentUser ? `    User ${updates.user}` : '',
+      port: updates.port || '22',
+      key_file: updates.keyFile || '~/.ssh/id_ed25519',
+      jump_host: updates.jumpHost || 'bastion.example.com',
+      server_alive_interval: updates.serverAliveInterval || '60',
+      server_alive_count_max: updates.serverAliveCountMax || '3',
+      connect_timeout: updates.connectTimeout || '10',
+      compression: updates.compression || 'yes',
+      strict_host_key_checking: updates.strictHostKeyChecking || 'ask',
+      // Phase 2: Developer Features
+      control_master: updates.controlMaster || 'auto',
+      control_path: '~/.ssh/control-%h-%p-%r',
+      control_persist: updates.controlPersist || '10m',
+      forward_x11: updates.forwardX11 || 'no',
+      forward_agent: updates.forwardAgent || 'no',
+      dynamic_forward: updates.dynamicForward || '',
+      local_forwards: this.formatPortForwards(updates.localForwards || []),
+      remote_forwards: this.formatPortForwards(updates.remoteForwards || [])
+    };
 
-    if (!hostSection) {
-      throw new Error(`Host section '${name}' not found in configuration`);
+    const template = updates.template || 'basic-server';
+    const configContent = await this.templates.createFromTemplate(template, templateVariables);
+    
+    await this.fileUtils.writeConfigFile(group, updates.name || name, configContent);
+    
+    // If name changed, remove the old file
+    if (updates.name && updates.name !== name) {
+      await this.fileUtils.removeConfigFile(group, name);
     }
-
-    if (updates.host) hostSection.config.HostName = updates.host;
-    if (updates.user) hostSection.config.User = updates.user;
-    if (updates.port) hostSection.config.Port = updates.port;
-    if (updates.keyFile) hostSection.config.IdentityFile = updates.keyFile;
-
-    const updatedContent = SSHConfig.stringify(config);
-    await this.fileUtils.writeConfigFile(group, name, updatedContent);
+    
     await this.updateMainSSHConfig();
 
     return true;
