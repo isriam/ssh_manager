@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 const SSHManager = require('./backend/ssh-manager');
 
 let mainWindow;
@@ -7,10 +9,54 @@ let editWindow;
 let addWindow;
 let sshManager;
 
-function createWindow() {
-  mainWindow = new BrowserWindow({
+const WINDOW_STATE_FILE = path.join(os.homedir(), '.ssh-manager-window-state.json');
+
+function saveWindowState() {
+  if (mainWindow) {
+    const bounds = mainWindow.getBounds();
+    const isMaximized = mainWindow.isMaximized();
+    const state = {
+      x: bounds.x,
+      y: bounds.y,
+      width: bounds.width,
+      height: bounds.height,
+      isMaximized
+    };
+    
+    try {
+      fs.writeFileSync(WINDOW_STATE_FILE, JSON.stringify(state, null, 2));
+    } catch (error) {
+      console.error('Failed to save window state:', error);
+    }
+  }
+}
+
+function loadWindowState() {
+  try {
+    if (fs.existsSync(WINDOW_STATE_FILE)) {
+      const data = fs.readFileSync(WINDOW_STATE_FILE, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error('Failed to load window state:', error);
+  }
+  
+  // Return default window state
+  return {
     width: 400,
     height: 800,
+    isMaximized: false
+  };
+}
+
+function createWindow() {
+  const windowState = loadWindowState();
+  
+  mainWindow = new BrowserWindow({
+    x: windowState.x,
+    y: windowState.y,
+    width: windowState.width,
+    height: windowState.height,
     minWidth: 350,
     minHeight: 500,
     webPreferences: {
@@ -19,7 +65,8 @@ function createWindow() {
       preload: path.join(__dirname, 'frontend', 'preload.js')
     },
     title: 'SSH Manager',
-    icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png')
+    icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png'),
+    show: false
   });
 
   mainWindow.loadFile(path.join(__dirname, 'frontend', 'index.html'));
@@ -27,6 +74,20 @@ function createWindow() {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  // Show window and restore maximized state
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    if (windowState.isMaximized) {
+      mainWindow.maximize();
+    }
+  });
+
+  // Save window state on resize and move
+  mainWindow.on('resize', saveWindowState);
+  mainWindow.on('move', saveWindowState);
+  mainWindow.on('maximize', saveWindowState);
+  mainWindow.on('unmaximize', saveWindowState);
 
   mainWindow.on('closed', () => {
     if (editWindow) {
@@ -100,6 +161,7 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   console.log('SSH Manager shutting down...');
+  saveWindowState();
 });
 
 ipcMain.handle('ssh:add-connection', async (event, options) => {
@@ -174,18 +236,27 @@ ipcMain.handle('ssh:get-groups-tree', async () => {
   }
 });
 
-ipcMain.handle('ssh:create-group', async (event, groupName) => {
+ipcMain.handle('ssh:get-group-icon', async (event, groupPath) => {
   try {
-    const result = await sshManager.createGroup(groupName);
+    const result = await sshManager.getGroupIcon(groupPath);
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: error.message };
   }
 });
 
-ipcMain.handle('ssh:rename-group', async (event, oldName, newName) => {
+ipcMain.handle('ssh:create-group', async (event, groupName, icon) => {
   try {
-    const result = await sshManager.renameGroup(oldName, newName);
+    const result = await sshManager.createGroup(groupName, icon);
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ssh:rename-group', async (event, oldName, newName, newIcon) => {
+  try {
+    const result = await sshManager.renameGroup(oldName, newName, newIcon);
     return { success: true, data: result };
   } catch (error) {
     return { success: false, error: error.message };
@@ -309,7 +380,7 @@ ipcMain.handle('app:quit', async () => {
 });
 
 // Window management handlers
-ipcMain.handle('window:open-connection-form', async (event, options) => {
+ipcMain.handle('window:open-connection-form', async (_event, _options) => {
   try {
     return { success: true, message: 'Popup functionality will be implemented with existing modals for now' };
   } catch (error) {
@@ -318,7 +389,7 @@ ipcMain.handle('window:open-connection-form', async (event, options) => {
   }
 });
 
-ipcMain.handle('window:open-connection-details', async (event, options) => {
+ipcMain.handle('window:open-connection-details', async (_event, _options) => {
   try {
     return { success: true, message: 'Popup functionality will be implemented with existing modals for now' };
   } catch (error) {
@@ -417,7 +488,7 @@ ipcMain.handle('window:open-add-modal', async (event) => {
   }
 });
 
-ipcMain.handle('window:refresh-main', async (event) => {
+ipcMain.handle('window:refresh-main', async (_event) => {
   try {
     if (mainWindow) {
       mainWindow.webContents.send('refresh-connections');

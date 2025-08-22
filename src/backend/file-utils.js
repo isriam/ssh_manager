@@ -189,22 +189,6 @@ class FileUtils {
     return configs;
   }
 
-  async backupMainConfig() {
-    if (await fs.pathExists(this.sshConfigPath)) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const backupPath = path.join(
-        this.sshManagerDir, 
-        'backups', 
-        'config-backups', 
-        `ssh-config-${timestamp}.bak`
-      );
-      
-      await fs.copy(this.sshConfigPath, backupPath);
-      return backupPath;
-    }
-    
-    return null;
-  }
 
   async readMainConfig() {
     if (await fs.pathExists(this.sshConfigPath)) {
@@ -406,6 +390,32 @@ class FileUtils {
     }
 
     return groupName;
+  }
+
+  async writeGroupIcon(groupPath, icon) {
+    const groupDir = path.join(this.sshManagerDir, 'config', groupPath);
+    const iconFile = path.join(groupDir, '.icon');
+    
+    try {
+      await fs.writeFile(iconFile, icon, 'utf8');
+    } catch (error) {
+      console.error(`Failed to write group icon for ${groupPath}:`, error);
+    }
+  }
+
+  async readGroupIcon(groupPath) {
+    const groupDir = path.join(this.sshManagerDir, 'config', groupPath);
+    const iconFile = path.join(groupDir, '.icon');
+    
+    try {
+      if (await fs.pathExists(iconFile)) {
+        return await fs.readFile(iconFile, 'utf8');
+      }
+    } catch (error) {
+      console.error(`Failed to read group icon for ${groupPath}:`, error);
+    }
+    
+    return '📁'; // Default folder icon
   }
 }
 

@@ -656,6 +656,14 @@ function createNestedGroupNode(groupNode, depth) {
   const indentPx = Math.max(8, depth * baseIndent + 8); // Minimum 8px padding
   const groupIcon = getGroupIcon(name);
   
+  // Progressive enhancement: Start with default icon, then update with custom
+  getCustomGroupIcon(fullPath).then(customIcon => {
+    const iconSpan = treeNode.querySelector('.group-icon');
+    if (iconSpan && customIcon !== groupIcon) {
+      iconSpan.textContent = customIcon;
+    }
+  });
+  
   treeNode.innerHTML = `
     <div class="tree-node-header drop-zone ${isExistingGroup ? 'readonly-group' : ''}" style="padding-left: ${indentPx}px;">
       <span class="tree-toggle" data-group-path="${fullPath}">
@@ -813,6 +821,14 @@ function createGroupNode(groupName, depth = 0) {
   const canDelete = connectionCount === 0 && groupName !== 'existing';
   const isExistingGroup = groupName === 'existing';
   
+  // Progressive enhancement: Start with default icon, then update with custom
+  getCustomGroupIcon(groupName).then(customIcon => {
+    const iconSpan = groupNode.querySelector('.group-icon');
+    if (iconSpan && customIcon !== groupIcon) {
+      iconSpan.textContent = customIcon;
+    }
+  });
+  
   groupNode.innerHTML = `
     <div class="tree-node-header drop-zone ${isExistingGroup ? 'readonly-group' : ''}">
       <span class="tree-toggle">▼</span>
@@ -837,7 +853,13 @@ function createGroupNode(groupName, depth = 0) {
   return groupNode;
 }
 
-function getGroupIcon(groupName) {
+function getGroupIcon(groupName, customIcon = null) {
+  // If a custom icon is provided, use it
+  if (customIcon) {
+    return customIcon;
+  }
+  
+  // Fall back to predefined icons based on name
   const icons = {
     'work': '💼',
     'personal': '🏠', 
@@ -850,6 +872,36 @@ function getGroupIcon(groupName) {
     'existing': '📋'
   };
   return icons[groupName] || '📁';
+}
+
+// Cache for group icons to avoid repeated API calls
+const groupIconCache = new Map();
+
+function clearGroupIconCache() {
+  groupIconCache.clear();
+}
+
+async function getCustomGroupIcon(groupName) {
+  // Check cache first
+  if (groupIconCache.has(groupName)) {
+    return groupIconCache.get(groupName);
+  }
+  
+  try {
+    const result = await window.electronAPI.ssh.getGroupIcon(groupName);
+    if (result.success) {
+      const icon = result.data;
+      groupIconCache.set(groupName, icon);
+      return icon;
+    }
+  } catch (error) {
+    console.error('Failed to get custom group icon:', error);
+  }
+  
+  // Fall back to name-based icon
+  const fallbackIcon = getGroupIcon(groupName);
+  groupIconCache.set(groupName, fallbackIcon);
+  return fallbackIcon;
 }
 
 function getGroupDepth(groupPath) {
@@ -880,7 +932,7 @@ function createConnectionTreeItem(connection, groupDepth = null) {
     connectionIndent = `margin-left: ${indentPx}px;`;
   }
   
-  const icon = isExisting ? '🔒' : '🖥️';
+  const icon = isExisting ? '🔒' : (connection.icon || '🖥️');
   const nameDisplay = isExisting ? `${connection.name} (Read-Only)` : connection.name;
   
   item.style.cssText = connectionIndent;
@@ -1737,9 +1789,24 @@ function hideAddGroupForm() {
   document.getElementById('add-group-form').reset();
 }
 
-function showEditGroupForm(groupName) {
+async function showEditGroupForm(groupName) {
   document.getElementById('edit-group-old-name').value = groupName;
   document.getElementById('edit-group-name').value = groupName;
+  
+  // Load and set current group icon
+  try {
+    const result = await window.electronAPI.ssh.getGroupIcon(groupName);
+    if (result.success) {
+      const currentIcon = result.data;
+      const iconRadio = document.querySelector(`input[name="icon"][value="${currentIcon}"]`);
+      if (iconRadio) {
+        iconRadio.checked = true;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load group icon:', error);
+  }
+  
   document.getElementById('edit-group-modal').classList.add('active');
   document.getElementById('edit-group-name').focus();
   document.getElementById('edit-group-name').select();
@@ -1755,13 +1822,15 @@ async function handleAddGroup(e) {
   
   const formData = new FormData(e.target);
   const groupName = formData.get('name').trim().toLowerCase();
+  const groupIcon = formData.get('icon') || '📁';
   
   try {
     setStatus('Creating group...');
-    const result = await window.electronAPI.ssh.createGroup(groupName);
+    const result = await window.electronAPI.ssh.createGroup(groupName, groupIcon);
     
     if (result.success) {
       hideAddGroupForm();
+      clearGroupIconCache();
       await refreshAll();
       setStatus('Group created successfully');
       showSuccess(`Group "${groupName}" created successfully!`);
@@ -1781,21 +1850,18 @@ async function handleEditGroup(e) {
   const formData = new FormData(e.target);
   const oldName = document.getElementById('edit-group-old-name').value;
   const newName = formData.get('name').trim().toLowerCase();
-  
-  if (oldName === newName) {
-    hideEditGroupForm();
-    return;
-  }
+  const newIcon = formData.get('icon') || '📁';
   
   try {
-    setStatus('Renaming group...');
-    const result = await window.electronAPI.ssh.renameGroup(oldName, newName);
+    setStatus('Updating group...');
+    const result = await window.electronAPI.ssh.renameGroup(oldName, newName, newIcon);
     
     if (result.success) {
       hideEditGroupForm();
+      clearGroupIconCache();
       await refreshAll();
-      setStatus('Group renamed successfully');
-      showSuccess(`Group "${oldName}" renamed to "${newName}" successfully!`);
+      setStatus('Group updated successfully');
+      showSuccess(`Group "${oldName}" updated successfully!`);
     } else {
       setStatus('Error renaming group');
       showError('Failed to rename group: ' + result.error);

@@ -92,6 +92,41 @@
         </div>
         <div class="modal-body">
           <form id="add-group-form">
+            <!-- Icon Selector -->
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label for="group-icon">Group Icon</label>
+              <div class="icon-selector">
+                <div class="icon-options">
+                  <input type="radio" id="group-icon-default" name="icon" value="📁" checked>
+                  <label for="group-icon-default" class="icon-option">📁</label>
+                  
+                  <input type="radio" id="group-icon-work" name="icon" value="💼">
+                  <label for="group-icon-work" class="icon-option">💼</label>
+                  
+                  <input type="radio" id="group-icon-personal" name="icon" value="🏠">
+                  <label for="group-icon-personal" class="icon-option">🏠</label>
+                  
+                  <input type="radio" id="group-icon-projects" name="icon" value="🚀">
+                  <label for="group-icon-projects" class="icon-option">🚀</label>
+                  
+                  <input type="radio" id="group-icon-clients" name="icon" value="👥">
+                  <label for="group-icon-clients" class="icon-option">👥</label>
+                  
+                  <input type="radio" id="group-icon-servers" name="icon" value="🖥️">
+                  <label for="group-icon-servers" class="icon-option">🖥️</label>
+                  
+                  <input type="radio" id="group-icon-testing" name="icon" value="🧪">
+                  <label for="group-icon-testing" class="icon-option">🧪</label>
+                  
+                  <input type="radio" id="group-icon-production" name="icon" value="🏭">
+                  <label for="group-icon-production" class="icon-option">🏭</label>
+                  
+                  <input type="radio" id="group-icon-development" name="icon" value="🔧">
+                  <label for="group-icon-development" class="icon-option">🔧</label>
+                </div>
+              </div>
+            </div>
+            
             <div class="form-group">
               <label for="group-name">Group Name</label>
               <input type="text" id="group-name" name="name" required placeholder="e.g., work, clients/internal, servers/production" pattern="[a-z0-9][a-z0-9/_-]*" title="Lowercase letters, numbers, hyphens, underscores, and forward slashes for nesting. Must start with a letter or number.">
@@ -116,6 +151,42 @@
         <div class="modal-body">
           <form id="edit-group-form">
             <input type="hidden" id="edit-group-old-name">
+            
+            <!-- Icon Selector -->
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label for="edit-group-icon">Group Icon</label>
+              <div class="icon-selector">
+                <div class="icon-options">
+                  <input type="radio" id="edit-group-icon-default" name="icon" value="📁" checked>
+                  <label for="edit-group-icon-default" class="icon-option">📁</label>
+                  
+                  <input type="radio" id="edit-group-icon-work" name="icon" value="💼">
+                  <label for="edit-group-icon-work" class="icon-option">💼</label>
+                  
+                  <input type="radio" id="edit-group-icon-personal" name="icon" value="🏠">
+                  <label for="edit-group-icon-personal" class="icon-option">🏠</label>
+                  
+                  <input type="radio" id="edit-group-icon-projects" name="icon" value="🚀">
+                  <label for="edit-group-icon-projects" class="icon-option">🚀</label>
+                  
+                  <input type="radio" id="edit-group-icon-clients" name="icon" value="👥">
+                  <label for="edit-group-icon-clients" class="icon-option">👥</label>
+                  
+                  <input type="radio" id="edit-group-icon-servers" name="icon" value="🖥️">
+                  <label for="edit-group-icon-servers" class="icon-option">🖥️</label>
+                  
+                  <input type="radio" id="edit-group-icon-testing" name="icon" value="🧪">
+                  <label for="edit-group-icon-testing" class="icon-option">🧪</label>
+                  
+                  <input type="radio" id="edit-group-icon-production" name="icon" value="🏭">
+                  <label for="edit-group-icon-production" class="icon-option">🏭</label>
+                  
+                  <input type="radio" id="edit-group-icon-development" name="icon" value="🔧">
+                  <label for="edit-group-icon-development" class="icon-option">🔧</label>
+                </div>
+              </div>
+            </div>
+            
             <div class="form-group">
               <label for="edit-group-name">New Group Name</label>
               <input type="text" id="edit-group-name" name="name" required placeholder="e.g., clients, servers, testing" pattern="[a-z0-9-_]{2,}" title="Only lowercase letters, numbers, hyphens, and underscores. At least 2 characters.">

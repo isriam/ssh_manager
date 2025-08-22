@@ -27,6 +27,42 @@
         <!-- Basic Connection Details Section -->
         <div class="detail-section">
           <h4>Basic Connection Details</h4>
+          
+          <!-- Icon Selector -->
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label for="connection-icon">Connection Icon</label>
+            <div class="icon-selector">
+              <div class="icon-options">
+                <input type="radio" id="icon-default" name="icon" value="💻" checked>
+                <label for="icon-default" class="icon-option">💻</label>
+                
+                <input type="radio" id="icon-work" name="icon" value="💼">
+                <label for="icon-work" class="icon-option">💼</label>
+                
+                <input type="radio" id="icon-personal" name="icon" value="🏠">
+                <label for="icon-personal" class="icon-option">🏠</label>
+                
+                <input type="radio" id="icon-projects" name="icon" value="🚀">
+                <label for="icon-projects" class="icon-option">🚀</label>
+                
+                <input type="radio" id="icon-clients" name="icon" value="👥">
+                <label for="icon-clients" class="icon-option">👥</label>
+                
+                <input type="radio" id="icon-servers" name="icon" value="🖥️">
+                <label for="icon-servers" class="icon-option">🖥️</label>
+                
+                <input type="radio" id="icon-testing" name="icon" value="🧪">
+                <label for="icon-testing" class="icon-option">🧪</label>
+                
+                <input type="radio" id="icon-production" name="icon" value="🏭">
+                <label for="icon-production" class="icon-option">🏭</label>
+                
+                <input type="radio" id="icon-development" name="icon" value="🔧">
+                <label for="icon-development" class="icon-option">🔧</label>
+              </div>
+            </div>
+          </div>
+          
           <div class="detail-grid">
             <div class="form-group">
               <label for="connection-name">Connection Name</label>
@@ -215,6 +251,7 @@
         user: formData.get('user'),
         port: parseInt(formData.get('port')) || 22,
         group: formData.get('group'),
+        icon: formData.get('icon') || '💻',
         keyFile: formData.get('keyFile') || '~/.ssh/id_ed25519',
         template: formData.get('template'),
         jumpHost: formData.get('jumpHost'),

@@ -19,7 +19,7 @@ class SSHManager {
   async addConnection(options) {
     const { 
       name, host, user, port = '22', group = 'personal', template = 'basic-server', 
-      keyFile, jumpHost, localPort, remoteHost, remotePort, socksPort,
+      icon = '💻', keyFile, jumpHost, localPort, remoteHost, remotePort, socksPort,
       serverAliveInterval = '60', serverAliveCountMax = '3', 
       connectTimeout = '10', compression = 'yes', strictHostKeyChecking = 'ask',
       // Phase 2: Developer Features
@@ -66,7 +66,10 @@ class SSHManager {
 
     const configContent = await this.templates.createFromTemplate(template, templateVariables);
     
-    await this.fileUtils.writeConfigFile(group, name, configContent);
+    // Add icon metadata as comment
+    const configWithIcon = `# SSH Manager Icon: ${icon}\n${configContent}`;
+    
+    await this.fileUtils.writeConfigFile(group, name, configWithIcon);
     await this.updateMainSSHConfig();
 
     return {
@@ -125,7 +128,6 @@ class SSHManager {
   async getExistingSSHConnections() {
     try {
       const mainConfig = await this.fileUtils.readMainConfig();
-      const SSHConfig = require('ssh-config');
       const config = SSHConfig.parse(mainConfig);
       
       const existingConnections = [];
@@ -209,6 +211,10 @@ class SSHManager {
       throw new Error(`Connection '${name}' not found in group '${group}'`);
     }
 
+    // Extract existing icon if no new one provided
+    const existingConfig = this.parseSSHConfig(existingContent);
+    const icon = updates.icon || existingConfig.icon || '💻';
+
     // For comprehensive updates, it's better to regenerate the config from template
     // This ensures all new options are properly formatted and included
     const currentUser = require('os').userInfo().username;
@@ -239,7 +245,10 @@ class SSHManager {
     const template = updates.template || 'basic-server';
     const configContent = await this.templates.createFromTemplate(template, templateVariables);
     
-    await this.fileUtils.writeConfigFile(group, updates.name || name, configContent);
+    // Add icon metadata as comment
+    const configWithIcon = `# SSH Manager Icon: ${icon}\n${configContent}`;
+    
+    await this.fileUtils.writeConfigFile(group, updates.name || name, configWithIcon);
     
     // If name changed, remove the old file
     if (updates.name && updates.name !== name) {
@@ -319,11 +328,15 @@ class SSHManager {
 
   parseSSHConfig(content) {
     try {
+      // Extract icon from comment
+      const iconMatch = content.match(/# SSH Manager Icon: (.+)/);
+      const icon = iconMatch ? iconMatch[1] : '💻';
+      
       const config = SSHConfig.parse(content);
       const hostSection = config.find(section => section.param === 'Host');
 
       if (!hostSection || !hostSection.config) {
-        return { host: 'unknown', user: 'unknown', port: '22' };
+        return { host: 'unknown', user: 'unknown', port: '22', icon };
       }
 
       const getConfigValue = (param) => {
@@ -335,7 +348,8 @@ class SSHManager {
         host: getConfigValue('HostName') || 'unknown',
         user: getConfigValue('User') || 'unknown',
         port: getConfigValue('Port') || '22',
-        keyFile: getConfigValue('IdentityFile') || '~/.ssh/id_ed25519'
+        keyFile: getConfigValue('IdentityFile') || '~/.ssh/id_ed25519',
+        icon
       };
     } catch (error) {
       throw new Error(`Invalid SSH configuration: ${error.message}`);
@@ -447,7 +461,11 @@ class SSHManager {
     return await this.fileUtils.getGroupsTree();
   }
 
-  async createGroup(groupPath) {
+  async getGroupIcon(groupPath) {
+    return await this.fileUtils.readGroupIcon(groupPath);
+  }
+
+  async createGroup(groupPath, icon = '📁') {
     if (!groupPath || typeof groupPath !== 'string' || groupPath.trim() === '') {
       throw new Error('Group path is required');
     }
@@ -465,10 +483,14 @@ class SSHManager {
     }
 
     const createdPath = await this.fileUtils.createGroup(normalizedPath);
+    
+    // Save group icon metadata
+    await this.fileUtils.writeGroupIcon(normalizedPath, icon);
+    
     return { name: createdPath };
   }
 
-  async renameGroup(oldPath, newPath) {
+  async renameGroup(oldPath, newPath, newIcon = null) {
     if (!oldPath || !newPath) {
       throw new Error('Both old and new group paths are required');
     }
@@ -491,7 +513,7 @@ class SSHManager {
 
     const connections = await this.listConnections(oldPath);
     
-    // Read all connection file contents BEFORE moving the directory
+    // Read all connection file contents AND group icon BEFORE moving the directory
     const connectionContents = [];
     for (const connection of connections) {
       const content = await this.fileUtils.readConfigFile(oldPath, connection.name);
@@ -501,6 +523,9 @@ class SSHManager {
       });
     }
     
+    // Read the group icon or use the new one provided
+    const groupIcon = newIcon || await this.fileUtils.readGroupIcon(oldPath);
+    
     await this.fileUtils.renameGroup(oldPath, normalizedNewPath);
     
     // Write the connection contents to the new location
@@ -509,6 +534,9 @@ class SSHManager {
         await this.fileUtils.writeConfigFile(normalizedNewPath, connectionData.name, connectionData.content);
       }
     }
+    
+    // Set the group icon (either restored or new one)
+    await this.fileUtils.writeGroupIcon(normalizedNewPath, groupIcon);
 
     await this.updateMainSSHConfig();
     return { oldName: oldPath, newName: normalizedNewPath };
@@ -923,63 +951,9 @@ class SSHManager {
       const os = require('os');
       
       try {
-        let terminalApp;
-        let terminalArgs;
+        const terminalConfig = this.getTerminalCommand(sshCommand.simple, os);
         
-        if (os.platform() === 'darwin') {
-          // macOS - use Terminal.app and bring it to front
-          terminalApp = 'osascript';
-          terminalArgs = [
-            '-e', 
-            `tell application "Terminal"
-              activate
-              set newTab to do script "${sshCommand.simple}"
-              activate
-            end tell`
-          ];
-        } else if (os.platform() === 'linux') {
-          // Linux - try common terminal emulators
-          const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm', 'x-terminal-emulator'];
-          let terminalFound = false;
-          
-          for (const terminal of terminals) {
-            try {
-              // Check if terminal exists
-              require('child_process').execSync(`which ${terminal}`, { stdio: 'ignore' });
-              
-              if (terminal === 'gnome-terminal') {
-                terminalApp = 'gnome-terminal';
-                terminalArgs = ['--', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-              } else if (terminal === 'konsole') {
-                terminalApp = 'konsole';
-                terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-              } else if (terminal === 'xfce4-terminal') {
-                terminalApp = 'xfce4-terminal';
-                terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-              } else {
-                terminalApp = terminal;
-                terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-              }
-              terminalFound = true;
-              break;
-            } catch (e) {
-              // Terminal not found, try next one
-              continue;
-            }
-          }
-          
-          if (!terminalFound) {
-            throw new Error('No suitable terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.');
-          }
-        } else if (os.platform() === 'win32') {
-          // Windows - use cmd with focus
-          terminalApp = 'cmd';
-          terminalArgs = ['/c', 'start', '/max', 'cmd', '/k', sshCommand.simple];
-        } else {
-          throw new Error(`Unsupported platform: ${os.platform()}`);
-        }
-
-        const child = spawn(terminalApp, terminalArgs, {
+        const child = spawn(terminalConfig.app, terminalConfig.args, {
           detached: true,
           stdio: 'ignore'
         });
@@ -1011,63 +985,9 @@ class SSHManager {
     const os = require('os');
     
     try {
-      let terminalApp;
-      let terminalArgs;
+      const terminalConfig = this.getTerminalCommand(sshCommand.simple, os);
       
-      if (os.platform() === 'darwin') {
-        // macOS - use Terminal.app and bring it to front
-        terminalApp = 'osascript';
-        terminalArgs = [
-          '-e', 
-          `tell application "Terminal"
-            activate
-            set newTab to do script "${sshCommand.simple}"
-            activate
-          end tell`
-        ];
-      } else if (os.platform() === 'linux') {
-        // Linux - try common terminal emulators
-        const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm', 'x-terminal-emulator'];
-        let terminalFound = false;
-        
-        for (const terminal of terminals) {
-          try {
-            // Check if terminal exists
-            require('child_process').execSync(`which ${terminal}`, { stdio: 'ignore' });
-            
-            if (terminal === 'gnome-terminal') {
-              terminalApp = 'gnome-terminal';
-              terminalArgs = ['--', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-            } else if (terminal === 'konsole') {
-              terminalApp = 'konsole';
-              terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-            } else if (terminal === 'xfce4-terminal') {
-              terminalApp = 'xfce4-terminal';
-              terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-            } else {
-              terminalApp = terminal;
-              terminalArgs = ['-e', 'bash', '-c', `${sshCommand.simple}; exec bash`];
-            }
-            terminalFound = true;
-            break;
-          } catch (e) {
-            // Terminal not found, try next one
-            continue;
-          }
-        }
-        
-        if (!terminalFound) {
-          throw new Error('No suitable terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.');
-        }
-      } else if (os.platform() === 'win32') {
-        // Windows - use cmd with focus
-        terminalApp = 'cmd';
-        terminalArgs = ['/c', 'start', '/max', 'cmd', '/k', sshCommand.simple];
-      } else {
-        throw new Error(`Unsupported platform: ${os.platform()}`);
-      }
-
-      const child = spawn(terminalApp, terminalArgs, {
+      const child = spawn(terminalConfig.app, terminalConfig.args, {
         detached: true,
         stdio: 'ignore'
       });
@@ -1084,7 +1004,70 @@ class SSHManager {
     }
   }
 
-  // Phase 2: Helper method for formatting port forwards
+  // Platform-specific terminal detection utility
+  getTerminalCommand(sshCommand, os) {
+    if (os.platform() === 'darwin') {
+      // macOS - use Terminal.app and bring it to front
+      return {
+        app: 'osascript',
+        args: [
+          '-e', 
+          `tell application "Terminal"
+            activate
+            set newTab to do script "${sshCommand}"
+            activate
+          end tell`
+        ]
+      };
+    } else if (os.platform() === 'linux') {
+      // Linux - try common terminal emulators
+      const terminals = ['gnome-terminal', 'konsole', 'xfce4-terminal', 'xterm', 'x-terminal-emulator'];
+      
+      for (const terminal of terminals) {
+        try {
+          // Check if terminal exists
+          require('child_process').execSync(`which ${terminal}`, { stdio: 'ignore' });
+          
+          if (terminal === 'gnome-terminal') {
+            return {
+              app: 'gnome-terminal',
+              args: ['--', 'bash', '-c', `${sshCommand}; exec bash`]
+            };
+          } else if (terminal === 'konsole') {
+            return {
+              app: 'konsole',
+              args: ['-e', 'bash', '-c', `${sshCommand}; exec bash`]
+            };
+          } else if (terminal === 'xfce4-terminal') {
+            return {
+              app: 'xfce4-terminal',
+              args: ['-e', 'bash', '-c', `${sshCommand}; exec bash`]
+            };
+          } else {
+            return {
+              app: terminal,
+              args: ['-e', 'bash', '-c', `${sshCommand}; exec bash`]
+            };
+          }
+        } catch (e) {
+          // Terminal not found, try next one
+          continue;
+        }
+      }
+      
+      throw new Error('No suitable terminal emulator found. Please install gnome-terminal, konsole, xfce4-terminal, or xterm.');
+    } else if (os.platform() === 'win32') {
+      // Windows - use cmd with focus
+      return {
+        app: 'cmd',
+        args: ['/c', 'start', '/max', 'cmd', '/k', sshCommand]
+      };
+    } else {
+      throw new Error(`Unsupported platform: ${os.platform()}`);
+    }
+  }
+
+  // Helper method for formatting port forwards
   formatPortForwards(forwards) {
     if (!Array.isArray(forwards) || forwards.length === 0) {
       return '';
@@ -1099,6 +1082,7 @@ class SSHManager {
       return '';
     }).filter(line => line).join('\n    ');
   }
+
 }
 
 module.exports = SSHManager;
