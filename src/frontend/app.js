@@ -8,7 +8,7 @@ let originalWindowSize = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   initializeEventListeners();
-  await loadGroups();
+  await loadGroupsInitial();
   await loadConnections();
   await loadTemplates();
   initializeDragAndDropDelegation();
@@ -483,7 +483,12 @@ function resetSidebarWidth() {
 }
 
 // Initialize which groups should be expanded by default
-function initializeExpandedGroups() {
+function initializeExpandedGroups(preserveExistingState = false) {
+  // If preserving state, keep the current expandedGroups as-is
+  if (preserveExistingState) {
+    return;
+  }
+  
   expandedGroups.clear();
   
   // Expand all groups by default for better UX
@@ -523,8 +528,32 @@ async function loadGroups() {
       allGroups = groupsResult.data;
       groupsTree = treeResult.success ? treeResult.data : {};
       
-      // Initialize expanded groups - expand all groups that have connections or nested groups
-      initializeExpandedGroups();
+      // Initialize expanded groups - preserve existing state when reloading
+      initializeExpandedGroups(true);
+      
+      renderGroupTree();
+    } else {
+      showError('Failed to load groups: ' + groupsResult.error);
+    }
+  } catch (error) {
+    showError('Failed to load groups: ' + error.message);
+  }
+}
+
+async function loadGroupsInitial() {
+  try {
+    // Load both flat groups (for backward compatibility) and tree structure
+    const [groupsResult, treeResult] = await Promise.all([
+      window.electronAPI.ssh.getGroups(),
+      window.electronAPI.ssh.getGroupsTree?.() || Promise.resolve({ success: true, data: {} })
+    ]);
+    
+    if (groupsResult.success) {
+      allGroups = groupsResult.data;
+      groupsTree = treeResult.success ? treeResult.data : {};
+      
+      // Initialize expanded groups - expand all on first load
+      initializeExpandedGroups(false);
       
       renderGroupTree();
     } else {
