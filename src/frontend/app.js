@@ -482,6 +482,27 @@ function resetSidebarWidth() {
   }
 }
 
+// Tree state persistence functions
+function saveTreeState() {
+  const treeState = Array.from(expandedGroups);
+  localStorage.setItem('treeExpandedGroups', JSON.stringify(treeState));
+}
+
+function loadTreeState() {
+  const saved = localStorage.getItem('treeExpandedGroups');
+  if (saved) {
+    try {
+      const treeState = JSON.parse(saved);
+      expandedGroups.clear();
+      treeState.forEach(groupPath => expandedGroups.add(groupPath));
+      return true; // Successfully loaded saved state
+    } catch (error) {
+      console.warn('Failed to parse saved tree state:', error);
+    }
+  }
+  return false; // No saved state or failed to load
+}
+
 // Initialize which groups should be expanded by default
 function initializeExpandedGroups(preserveExistingState = false) {
   // If preserving state, keep the current expandedGroups as-is
@@ -489,6 +510,12 @@ function initializeExpandedGroups(preserveExistingState = false) {
     return;
   }
   
+  // Try to load saved tree state first
+  if (loadTreeState()) {
+    return; // Successfully loaded saved state
+  }
+  
+  // No saved state, use defaults
   expandedGroups.clear();
   
   // Expand all groups by default for better UX
@@ -653,12 +680,10 @@ function renderNestedGroupTree(container, treeNodes, depth) {
     const groupNode = createNestedGroupNode(node, depth);
     container.appendChild(groupNode);
     
-    // Recursively render children if they exist and group is expanded
+    // Always recursively render children if they exist (DOM structure needed for connections)
     if (Object.keys(node.children).length > 0) {
       const childrenContainer = groupNode.querySelector('.tree-children');
-      if (expandedGroups.has(node.fullPath)) {
-        renderNestedGroupTree(childrenContainer, node.children, depth + 1);
-      }
+      renderNestedGroupTree(childrenContainer, node.children, depth + 1);
     }
   });
 }
@@ -736,10 +761,12 @@ function toggleNestedGroup(groupPath, groupNode) {
     toggle.textContent = '▶';
     groupNode.classList.remove('expanded');
     groupNode.classList.add('collapsed');
+    saveTreeState(); // Save state after collapse
   } else {
     // Expand
     expandedGroups.add(groupPath);
     childrenContainer.style.display = 'block';
+    saveTreeState(); // Save state after expand
     
     // Find and render children
     const pathSegments = groupPath.split('/');
@@ -773,10 +800,8 @@ function renderTreeConnections() {
   // Get all unique group paths from actual connections, not just allGroups
   const connectionGroups = [...new Set(allConnections.map(conn => conn.group))];
   
-  // Ensure all parent groups of connections are expanded so containers exist
-  connectionGroups.forEach(group => {
-    expandGroupPath(group);
-  });
+  // Note: Connection containers will be created during renderNestedGroupTree
+  // even for collapsed groups - no need to force expansion
   
   connectionGroups.forEach(group => {
     // Look for containers in both full mode and compact mode trees
@@ -1168,22 +1193,27 @@ function showConnectionDetails(connection) {
 }
 
 function toggleGroup(groupNode) {
-  const isCollapsed = groupNode.classList.contains('collapsed');
+  const groupPath = groupNode.dataset.group;
+  const isExpanded = expandedGroups.has(groupPath);
   const childrenContainer = groupNode.querySelector('.tree-children');
   const toggle = groupNode.querySelector('.tree-toggle');
   
-  if (isCollapsed) {
-    // Expand
-    groupNode.classList.remove('collapsed');
-    groupNode.classList.add('expanded');
-    childrenContainer.style.display = 'block';
-    toggle.textContent = '▼';
-  } else {
+  if (isExpanded) {
     // Collapse
+    expandedGroups.delete(groupPath);
     groupNode.classList.remove('expanded');
     groupNode.classList.add('collapsed');
     childrenContainer.style.display = 'none';
     toggle.textContent = '▶';
+    saveTreeState(); // Save state after collapse
+  } else {
+    // Expand
+    expandedGroups.add(groupPath);
+    groupNode.classList.remove('collapsed');
+    groupNode.classList.add('expanded');
+    childrenContainer.style.display = 'block';
+    toggle.textContent = '▼';
+    saveTreeState(); // Save state after expand
   }
 }
 
@@ -1411,9 +1441,13 @@ function expandGroupPath(groupPath) {
     expandedGroups.add(partialPath);
   }
   
+  // Save tree state after expanding
+  saveTreeState();
+  
   // Re-render to show expanded state
   renderGroupTree();
 }
+
 
 function hideAddConnectionForm() {
   document.getElementById('add-connection-modal').classList.remove('active');
