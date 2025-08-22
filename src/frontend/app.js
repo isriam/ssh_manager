@@ -1854,17 +1854,36 @@ async function handleEditGroup(e) {
   
   try {
     setStatus('Updating group...');
-    const result = await window.electronAPI.ssh.renameGroup(oldName, newName, newIcon);
     
-    if (result.success) {
-      hideEditGroupForm();
-      clearGroupIconCache();
-      await refreshAll();
-      setStatus('Group updated successfully');
-      showSuccess(`Group "${oldName}" updated successfully!`);
+    // Check if only icon is changing
+    if (oldName === newName) {
+      // Only update icon
+      const result = await window.electronAPI.ssh.updateGroupIcon(oldName, newIcon);
+      
+      if (result.success) {
+        hideEditGroupForm();
+        clearGroupIconCache();
+        await refreshAll();
+        setStatus('Group icon updated successfully');
+        showSuccess(`Group "${oldName}" icon updated successfully!`);
+      } else {
+        setStatus('Error updating group icon');
+        showError('Failed to update group icon: ' + result.error);
+      }
     } else {
-      setStatus('Error renaming group');
-      showError('Failed to rename group: ' + result.error);
+      // Name is changing, use rename
+      const result = await window.electronAPI.ssh.renameGroup(oldName, newName, newIcon);
+      
+      if (result.success) {
+        hideEditGroupForm();
+        clearGroupIconCache();
+        await refreshAll();
+        setStatus('Group updated successfully');
+        showSuccess(`Group "${oldName}" updated successfully!`);
+      } else {
+        setStatus('Error renaming group');
+        showError('Failed to rename group: ' + result.error);
+      }
     }
   } catch (error) {
     setStatus('Error: ' + error.message);

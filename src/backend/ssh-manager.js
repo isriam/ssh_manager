@@ -465,6 +465,27 @@ class SSHManager {
     return await this.fileUtils.readGroupIcon(groupPath);
   }
 
+  async updateGroupIcon(groupPath, icon) {
+    if (!groupPath || typeof groupPath !== 'string' || groupPath.trim() === '') {
+      throw new Error('Group path is required');
+    }
+    
+    if (!icon || typeof icon !== 'string' || icon.trim() === '') {
+      throw new Error('Icon is required');
+    }
+    
+    // Validate group exists
+    const existingGroups = await this.fileUtils.listGroups();
+    if (!existingGroups.includes(groupPath)) {
+      throw new Error(`Group '${groupPath}' does not exist`);
+    }
+    
+    // Update the group icon
+    await this.fileUtils.writeGroupIcon(groupPath, icon.trim());
+    
+    return { groupPath, icon: icon.trim() };
+  }
+
   async createGroup(groupPath, icon = '📁') {
     if (!groupPath || typeof groupPath !== 'string' || groupPath.trim() === '') {
       throw new Error('Group path is required');

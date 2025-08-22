@@ -14,6 +14,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     renameGroup: (oldName, newName, icon) => ipcRenderer.invoke('ssh:rename-group', oldName, newName, icon),
     deleteGroup: (groupName) => ipcRenderer.invoke('ssh:delete-group', groupName),
     getGroupIcon: (groupPath) => ipcRenderer.invoke('ssh:get-group-icon', groupPath),
+    updateGroupIcon: (groupPath, icon) => ipcRenderer.invoke('ssh:update-group-icon', groupPath, icon),
     getSSHCommand: (name, group) => ipcRenderer.invoke('ssh:get-ssh-command', name, group),
     verifyConfigIntegrity: () => ipcRenderer.invoke('ssh:verify-config-integrity'),
     connectToServer: (name, group) => ipcRenderer.invoke('ssh:connect-to-server', name, group),

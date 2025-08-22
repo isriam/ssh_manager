@@ -245,6 +245,15 @@ ipcMain.handle('ssh:get-group-icon', async (event, groupPath) => {
   }
 });
 
+ipcMain.handle('ssh:update-group-icon', async (event, groupPath, icon) => {
+  try {
+    await sshManager.updateGroupIcon(groupPath, icon);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('ssh:create-group', async (event, groupName, icon) => {
   try {
     const result = await sshManager.createGroup(groupName, icon);
