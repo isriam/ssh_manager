@@ -34,25 +34,31 @@ npm install -g ssh-manager
 ssh-manager create-shortcut  # Creates desktop shortcut
 ```
 
-## Screenshots
+## Interface Overview
 
-### Main Application Window
-![SSH Manager Main Window](./assets/screenshots/main-window.png)
-*The main SSH Manager interface showing organized connection groups and the connection sidebar*
+### 🖥️ Main Application Window
+- **Connection Sidebar**: Organized tree view with collapsible groups (work/personal/projects)
+- **Connection Details**: Right panel showing selected connection information
+- **Quick Actions**: Connect, Edit, Test, and Delete buttons for each connection
+- **Search & Filter**: Find connections quickly across all groups
 
-### Add Connection Dialog
-![Add SSH Connection](./assets/screenshots/add-connection.png)
-*Easy-to-use form for adding new SSH connections with template selection*
+### ➕ Add Connection Dialog  
+- **Simple Form**: Name, hostname, username, port, and SSH key selection
+- **Template Selection**: Choose from Basic Server, AWS EC2, Jump Host, Developer, etc.
+- **Advanced Options**: Connection timeouts, compression, host key checking
+- **Developer Features**: Port forwarding, X11 forwarding, agent forwarding
 
-### Edit Connection Window
-![Edit SSH Connection](./assets/screenshots/edit-connection.png)
-*Comprehensive editing interface with advanced SSH options and developer features*
+### ✏️ Edit Connection Interface
+- **Comprehensive Settings**: All SSH configuration options in organized sections
+- **Port Forward Management**: Add/remove local and remote port forwards
+- **Connection Testing**: Built-in SSH connectivity testing
+- **Template Migration**: Change connection templates while preserving settings
 
-### Connection Management
-![Connection Details](./assets/screenshots/connection-details.png)
-*Detailed view of SSH connection settings with quick actions and testing capabilities*
-
-> **Note**: Screenshots will be added in the next release. The application provides a clean, intuitive interface for managing SSH connections with organized folder structures and advanced configuration options.
+### 📊 Connection Management
+- **Drag & Drop**: Move connections between groups easily
+- **Bulk Operations**: Export configurations, backup settings
+- **Real-time Validation**: SSH config syntax checking
+- **Integration**: Seamless integration with system SSH client
 
 ## Quick Start
 
@@ -156,6 +162,16 @@ npm run lint       # Code linting
 ## Contributing
 
 This project is designed for network engineers and developers who need better SSH connection management. Contributions welcome!
+
+### Adding Screenshots
+Want to help improve the documentation? You can contribute screenshots:
+1. Run `npm run dev` to launch the application
+2. Create sample connections to showcase features
+3. Take screenshots following the guidelines in `assets/screenshots/README.md`
+4. Submit a PR with the screenshots
+
+### Development
+See the [Development Setup](#development-setup) section below for getting started with development.
 
 ## License
 
