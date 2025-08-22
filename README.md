@@ -2,14 +2,22 @@
 
 A cross-platform GUI application for managing SSH configurations through organized folders and visual forms, distributed via npm with desktop shortcuts.
 
+<div align="center">
+  <img src="./assets/icons/ssh_manager_128.png" alt="SSH Manager Icon" width="64" height="64">
+</div>
+
 ## Overview
 
 SSH Manager simplifies the management of multiple SSH connections by providing:
-- **Visual Configuration**: Easy-to-use forms instead of editing config files
-- **Organized Storage**: Group connections by work/personal/projects
-- **One-Click Connections**: Desktop shortcuts for quick SSH access
-- **Template System**: Pre-built configurations for common setups
-- **Cross-Platform**: Works on macOS, Windows, and Linux
+
+- 🖥️ **Visual Configuration**: Easy-to-use forms instead of editing config files
+- 📁 **Organized Storage**: Group connections by work/personal/projects  
+- 🚀 **One-Click Connections**: Desktop shortcuts for quick SSH access
+- 📋 **Template System**: Pre-built configurations for common setups
+- 🌍 **Cross-Platform**: Works on macOS, Windows, and Linux
+- 🔐 **SSH Key Management**: Generate and manage SSH keys with proper permissions
+- 🔧 **Developer Features**: Port forwarding, multiplexing, X11 forwarding
+- 🔒 **Secure**: No logging of sensitive data, proper validation
 
 ## Target Users
 
@@ -25,6 +33,26 @@ SSH Manager simplifies the management of multiple SSH connections by providing:
 npm install -g ssh-manager
 ssh-manager create-shortcut  # Creates desktop shortcut
 ```
+
+## Screenshots
+
+### Main Application Window
+![SSH Manager Main Window](./assets/screenshots/main-window.png)
+*The main SSH Manager interface showing organized connection groups and the connection sidebar*
+
+### Add Connection Dialog
+![Add SSH Connection](./assets/screenshots/add-connection.png)
+*Easy-to-use form for adding new SSH connections with template selection*
+
+### Edit Connection Window
+![Edit SSH Connection](./assets/screenshots/edit-connection.png)
+*Comprehensive editing interface with advanced SSH options and developer features*
+
+### Connection Management
+![Connection Details](./assets/screenshots/connection-details.png)
+*Detailed view of SSH connection settings with quick actions and testing capabilities*
+
+> **Note**: Screenshots will be added in the next release. The application provides a clean, intuitive interface for managing SSH connections with organized folder structures and advanced configuration options.
 
 ## Quick Start
 
