@@ -40,7 +40,7 @@ class SSHManager {
       name: name,
       host: host,
       user: user || currentUser,
-      user_line: user && user !== currentUser ? `    User ${user}` : '',
+      user_line: user && user.trim() !== '' ? `    User ${user}` : '',
       port: port,
       key_file: keyFile || '~/.ssh/id_ed25519',
       jump_host: jumpHost || 'bastion.example.com',
@@ -167,7 +167,7 @@ class SSHManager {
                 name: hostName,
                 group: 'existing',
                 host: getConfigValue('HostName') || hostName,
-                user: getConfigValue('User') || 'unknown',
+                user: getConfigValue('User') || '',
                 port: getConfigValue('Port') || '22',
                 keyFile: getConfigValue('IdentityFile') || '~/.ssh/id_ed25519',
                 managed: false,
@@ -336,7 +336,7 @@ class SSHManager {
       const hostSection = config.find(section => section.param === 'Host');
 
       if (!hostSection || !hostSection.config) {
-        return { host: 'unknown', user: 'unknown', port: '22', icon };
+        return { host: 'unknown', user: '', port: '22', icon };
       }
 
       const getConfigValue = (param) => {
@@ -346,7 +346,7 @@ class SSHManager {
 
       return {
         host: getConfigValue('HostName') || 'unknown',
-        user: getConfigValue('User') || 'unknown',
+        user: getConfigValue('User') || '',
         port: getConfigValue('Port') || '22',
         keyFile: getConfigValue('IdentityFile') || '~/.ssh/id_ed25519',
         icon
@@ -964,7 +964,7 @@ class SSHManager {
       const sshCommand = {
         simple: `ssh ${name}`,
         explicit: `ssh -F ~/.ssh/config ${name}`,
-        config: { host: name, user: 'unknown', port: '22' }
+        config: { host: name, user: '', port: '22' }
       };
       
       // Launch SSH connection in terminal
