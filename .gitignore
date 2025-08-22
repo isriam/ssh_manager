@@ -119,5 +119,9 @@ user-sessions/
 
 # Temporary files
 *.tmp
-*.tempCLAUDE.md
+
+# Claude documentation files
+CLAUDE.md
 **/CLAUDE.md
+*.tempCLAUDE.md
+*CLAUDE*.md
