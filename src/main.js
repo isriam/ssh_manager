@@ -141,8 +141,9 @@ async function initializeSSHManager() {
   }
 }
 
+app.setName('SSH Manager');
+
 app.whenReady().then(async () => {
-  app.setName('SSH Manager');
   await initializeSSHManager();
   createWindow();
 
