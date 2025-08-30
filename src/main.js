@@ -119,7 +119,7 @@ function createEditWindow(connectionData) {
     icon: path.join(__dirname, '..', 'assets', 'icons', 'icon.png')
   });
 
-  editWindow.loadFile(path.join(__dirname, 'frontend', 'edit-window.html'));
+  editWindow.loadFile(path.join(__dirname, 'frontend', 'edit-standalone.html'));
 
   editWindow.on('closed', () => {
     editWindow = null;

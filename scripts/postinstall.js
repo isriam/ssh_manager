@@ -3,8 +3,8 @@
 /**
  * SSH Manager Post-Install Script
  * 
- * This script runs after npm install -g ssh-manager
- * Sets up the SSH Manager environment and optionally installs desktop integration
+ * This script runs after npm install (during git clone workflow)
+ * Sets up the SSH Manager environment and SSH config integration
  */
 
 const fs = require('fs-extra');
@@ -31,21 +31,21 @@ async function postInstall() {
       console.log('🍎 macOS Setup:');
       console.log('• SSH Manager CLI is available globally as "ssh-manager"');
       console.log('• To create desktop shortcut: ssh-manager create-shortcut');
-      console.log('• Build desktop app: npm run build (for development)');
+      console.log('• Launch GUI app: npm start (from project directory)');
       
     } else if (platform === 'linux') {
       console.log('');
       console.log('🐧 Linux Setup:');
       console.log('• SSH Manager CLI is available globally as "ssh-manager"');
       console.log('• To create desktop shortcut: ssh-manager create-shortcut');
-      console.log('• Build desktop app: npm run build (for development)');
+      console.log('• Launch GUI app: npm start (from project directory)');
       
     } else if (platform === 'win32') {
       console.log('');
       console.log('🪟 Windows Setup:');
       console.log('• SSH Manager CLI is available globally as "ssh-manager"');
-      console.log('• Desktop integration available after building installer');
-      console.log('• Build desktop app: npm run build');
+      console.log('• To create desktop shortcut: ssh-manager create-shortcut');
+      console.log('• Launch GUI app: npm start (from project directory)');
     }
     
     console.log('');
