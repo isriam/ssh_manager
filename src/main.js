@@ -510,3 +510,31 @@ ipcMain.handle('window:refresh-main', async (_event) => {
     return { success: false, error: error.message };
   }
 });
+
+// SSH Config Backup and Restore handlers
+ipcMain.handle('ssh:get-manager-state', async () => {
+  try {
+    const state = await sshManager.getSSHManagerState();
+    return { success: true, data: state };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ssh:revert-to-original-config', async () => {
+  try {
+    const result = await sshManager.revertToOriginalSSHConfig();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle('ssh:enable-manager-integration', async () => {
+  try {
+    const result = await sshManager.enableSSHManagerIntegration();
+    return { success: true, data: result };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});

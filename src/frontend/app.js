@@ -8,6 +8,10 @@ let originalWindowSize = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   initializeEventListeners();
+  
+  // Check SSH Manager state first
+  await refreshSSHManagerState();
+  
   await loadGroupsInitial();
   await loadConnections();
   await loadTemplates();
@@ -18,6 +22,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   
   // Listen for refresh requests from other windows
   window.electronAPI.ipc.on('refresh-connections', async () => {
+    await refreshSSHManagerState();
     await loadGroups();
     await loadConnections();
   });
@@ -302,6 +307,14 @@ function handleMenuAction(action) {
     case 'import-connections':
       // TODO: Implement import functionality
       showError('Import functionality coming soon!');
+      break;
+      
+    case 'revert-ssh-config':
+      revertSSHConfig();
+      break;
+      
+    case 'enable-ssh-manager':
+      enableSSHManagerIntegration();
       break;
       
     case 'settings':
@@ -598,6 +611,23 @@ async function loadConnections() {
     
     if (result.success) {
       allConnections = result.data;
+      
+      // If SSH Manager is disabled, mark managed connections as disconnected/read-only
+      if (!sshManagerState.enabled) {
+        allConnections = allConnections.map(conn => {
+          if (conn.managed) {
+            return {
+              ...conn,
+              managed: false, // Show as non-managed (read-only)
+              group: conn.group === 'existing' ? conn.group : conn.group, // Keep original group
+              disconnected: true, // Mark as disconnected from SSH Manager
+              originallyManaged: true // Remember it was managed
+            };
+          }
+          return conn;
+        });
+      }
+      
       updateConnectionCount();
       
       // Render connections
@@ -605,7 +635,12 @@ async function loadConnections() {
         renderTreeConnections();
       }, 100);
       
-      setStatus('Ready');
+      if (!sshManagerState.enabled) {
+        setStatus('SSH Manager disconnected - showing configurations as read-only');
+        showDisconnectedState();
+      } else {
+        setStatus('Ready');
+      }
     } else {
       setStatus('Error loading connections: ' + result.error);
       showError('Failed to load connections: ' + result.error);
@@ -613,6 +648,22 @@ async function loadConnections() {
   } catch (error) {
     setStatus('Error: ' + error.message);
     showError('Failed to load connections: ' + error.message);
+  }
+}
+
+function showDisconnectedState() {
+  // Show a message in the connection details area about the disconnected state
+  const detailsContainer = document.getElementById('connection-details');
+  if (detailsContainer && !selectedConnection) {
+    detailsContainer.innerHTML = `
+      <div class="welcome-state disconnected-state">
+        <div class="welcome-icon">⚠️</div>
+        <h3>SSH Manager Disconnected</h3>
+        <p>SSH Manager integration is currently disabled.</p>
+        <p>Your SSH Manager configurations are shown as read-only.</p>
+        <p>Use <strong>File → Enable SSH Manager Integration</strong> to reactivate managed connections.</p>
+      </div>
+    `;
   }
 }
 
@@ -2221,3 +2272,149 @@ window.showMigrateConnectionDialog = showMigrateConnectionDialog;
 window.hideMigrateModal = hideMigrateModal;
 window.confirmMigration = confirmMigration;
 window.deleteConnection = deleteConnection;
+
+// SSH Config Backup and Restore Functions
+async function revertSSHConfig() {
+  try {
+    // First check the current state
+    const stateResult = await window.electronAPI.ssh.getManagerState();
+    if (!stateResult.success) {
+      showError('Failed to check SSH Manager state: ' + stateResult.error);
+      return;
+    }
+
+    const state = stateResult.data;
+    if (!state.canRevert) {
+      showError('Cannot revert SSH configuration. No backup found.');
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = confirm(
+      '⚠️  Are you sure you want to revert to the original SSH configuration?\n\n' +
+      'This will:\n' +
+      '• Restore your ~/.ssh/config to its original state\n' +
+      '• Disable SSH Manager integration\n' +
+      '• Keep SSH Manager configurations (but make them inactive)\n' +
+      '• Show existing connections as read-only\n\n' +
+      'Click OK to proceed, Cancel to abort.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus('Reverting SSH configuration...');
+    
+    const result = await window.electronAPI.ssh.revertToOriginalConfig();
+    
+    if (result.success) {
+      setStatus('SSH configuration reverted successfully');
+      showSuccess(
+        '✅ SSH configuration reverted successfully!\n\n' +
+        'Your original SSH config has been restored.\n' +
+        'SSH Manager configurations are preserved but inactive.\n\n' +
+        'The application will now refresh to show the new state.'
+      );
+      
+      // Refresh the application to show the new state
+      await refreshSSHManagerState();
+      await refreshAll();
+    } else {
+      setStatus('Error reverting SSH configuration');
+      showError('Failed to revert SSH configuration: ' + result.error);
+    }
+  } catch (error) {
+    setStatus('Error: ' + error.message);
+    showError('Failed to revert SSH configuration: ' + error.message);
+  }
+}
+
+async function enableSSHManagerIntegration() {
+  try {
+    // First check the current state
+    const stateResult = await window.electronAPI.ssh.getManagerState();
+    if (!stateResult.success) {
+      showError('Failed to check SSH Manager state: ' + stateResult.error);
+      return;
+    }
+
+    const state = stateResult.data;
+    if (!state.canEnable) {
+      showSuccess('SSH Manager integration is already enabled!');
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = confirm(
+      '🔧 Enable SSH Manager Integration?\n\n' +
+      'This will:\n' +
+      '• Re-add SSH Manager Include directive to ~/.ssh/config\n' +
+      '• Enable SSH Manager managed connections\n' +
+      '• Make SSH Manager configurations active again\n\n' +
+      'Click OK to proceed, Cancel to abort.'
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setStatus('Enabling SSH Manager integration...');
+    
+    const result = await window.electronAPI.ssh.enableManagerIntegration();
+    
+    if (result.success) {
+      setStatus('SSH Manager integration enabled successfully');
+      showSuccess(
+        '✅ SSH Manager integration enabled successfully!\n\n' +
+        'SSH Manager configurations are now active.\n\n' +
+        'The application will now refresh to show the new state.'
+      );
+      
+      // Refresh the application to show the new state
+      await refreshSSHManagerState();
+      await refreshAll();
+    } else {
+      setStatus('Error enabling SSH Manager integration');
+      showError('Failed to enable SSH Manager integration: ' + result.error);
+    }
+  } catch (error) {
+    setStatus('Error: ' + error.message);
+    showError('Failed to enable SSH Manager integration: ' + error.message);
+  }
+}
+
+// Global SSH Manager state
+let sshManagerState = {
+  enabled: true,
+  hasBackup: false,
+  canRevert: false,
+  canEnable: false
+};
+
+async function refreshSSHManagerState() {
+  try {
+    const result = await window.electronAPI.ssh.getManagerState();
+    if (result.success) {
+      sshManagerState = result.data;
+      updateMenuItemVisibility();
+      return sshManagerState;
+    }
+  } catch (error) {
+    console.error('Failed to refresh SSH Manager state:', error);
+  }
+  return sshManagerState;
+}
+
+function updateMenuItemVisibility() {
+  const revertMenuItem = document.getElementById('revert-ssh-menu');
+  const enableMenuItem = document.getElementById('enable-ssh-menu');
+  
+  if (revertMenuItem) {
+    revertMenuItem.style.display = sshManagerState.canRevert ? 'block' : 'none';
+  }
+  
+  if (enableMenuItem) {
+    enableMenuItem.style.display = sshManagerState.canEnable ? 'block' : 'none';
+  }
+}

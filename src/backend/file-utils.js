@@ -248,6 +248,84 @@ class FileUtils {
     return this.sshConfigPath;
   }
 
+  getSSHConfigBackupPath() {
+    return path.join(this.sshDir, 'config.ssh-manager-backup');
+  }
+
+  async createSSHConfigBackup() {
+    const backupPath = this.getSSHConfigBackupPath();
+    
+    // Only create backup if it doesn't already exist
+    if (await fs.pathExists(backupPath)) {
+      console.log('SSH config backup already exists, skipping backup creation');
+      return { created: false, path: backupPath, reason: 'Backup already exists' };
+    }
+
+    const originalConfig = await this.readMainConfig();
+    
+    // Create backup with timestamp header
+    const timestamp = new Date().toISOString();
+    const backupContent = `# SSH Manager Backup - Created: ${timestamp}
+# This file contains your original SSH config before SSH Manager was installed
+# Do not modify this file manually
+
+${originalConfig}`;
+
+    await fs.writeFile(backupPath, backupContent, 'utf8');
+    
+    // Set proper permissions
+    if (process.platform !== 'win32') {
+      await fs.chmod(backupPath, 0o600);
+    }
+    
+    console.log(`SSH config backup created: ${backupPath}`);
+    return { created: true, path: backupPath, timestamp };
+  }
+
+  async hasSSHConfigBackup() {
+    return await fs.pathExists(this.getSSHConfigBackupPath());
+  }
+
+  async restoreSSHConfigFromBackup() {
+    const backupPath = this.getSSHConfigBackupPath();
+    
+    if (!await fs.pathExists(backupPath)) {
+      throw new Error('No SSH config backup found. Cannot restore original configuration.');
+    }
+
+    // Read backup content
+    const backupContent = await fs.readFile(backupPath, 'utf8');
+    
+    // Remove backup header comments to get original config
+    const lines = backupContent.split('\n');
+    let startIndex = 0;
+    
+    // Skip header comments
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.startsWith('# SSH Manager Backup') || 
+          line.startsWith('# This file contains') ||
+          line.startsWith('# Do not modify') ||
+          line === '#') {
+        startIndex = i + 1;
+      } else if (line.startsWith('#')) {
+        // Found original content that starts with comment
+        break;
+      } else if (line !== '') {
+        // Found original content
+        break;
+      }
+    }
+    
+    const originalConfig = lines.slice(startIndex).join('\n');
+    
+    // Restore original config
+    await this.writeMainConfig(originalConfig);
+    
+    console.log('SSH config restored from backup');
+    return { restored: true, path: backupPath };
+  }
+
   async listGroups() {
     const configDir = path.join(this.sshManagerDir, 'config');
     

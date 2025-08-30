@@ -9,11 +9,28 @@ class SSHManager {
   }
 
   async init() {
+    // Create backup of original SSH config before any modifications
+    await this.createSSHConfigBackupIfNeeded();
+    
     await this.fileUtils.ensureDirectoryStructure();
     await this.templates.init();
     await this.updateMainSSHConfig();
     
     console.log(`SSH Manager initialized at: ${this.fileUtils.getSSHManagerPath()}`);
+  }
+
+  async createSSHConfigBackupIfNeeded() {
+    try {
+      const result = await this.fileUtils.createSSHConfigBackup();
+      if (result.created) {
+        console.log('Original SSH config backed up successfully');
+      }
+      return result;
+    } catch (error) {
+      console.warn('Warning: Could not create SSH config backup:', error.message);
+      // Don't fail initialization if backup creation fails
+      return { created: false, error: error.message };
+    }
   }
 
   async addConnection(options) {
@@ -1102,6 +1119,83 @@ class SSHManager {
       }
       return '';
     }).filter(line => line).join('\n    ');
+  }
+
+  // SSH Config Backup and Restore Methods
+  
+  async isSSHManagerEnabled() {
+    try {
+      const currentConfig = await this.fileUtils.readMainConfig();
+      const lines = currentConfig.split('\n');
+      
+      // Check if SSH Manager Include directive exists
+      const hasIncludeDirective = lines.some(line => 
+        line.trim().startsWith('Include') && 
+        line.includes('ssh_manager/config')
+      );
+      
+      return hasIncludeDirective;
+    } catch (error) {
+      console.error('Error checking SSH Manager state:', error);
+      return false;
+    }
+  }
+
+  async getSSHManagerState() {
+    const isEnabled = await this.isSSHManagerEnabled();
+    const hasBackup = await this.fileUtils.hasSSHConfigBackup();
+    
+    return {
+      enabled: isEnabled,
+      hasBackup: hasBackup,
+      canRevert: hasBackup,
+      canEnable: !isEnabled
+    };
+  }
+
+  async revertToOriginalSSHConfig() {
+    try {
+      const state = await this.getSSHManagerState();
+      
+      if (!state.hasBackup) {
+        throw new Error('No backup found. Cannot revert to original SSH configuration.');
+      }
+
+      // Restore from backup
+      const result = await this.fileUtils.restoreSSHConfigFromBackup();
+      
+      return {
+        success: true,
+        message: 'SSH configuration reverted to original state successfully',
+        path: result.path
+      };
+    } catch (error) {
+      throw new Error(`Failed to revert SSH configuration: ${error.message}`);
+    }
+  }
+
+  async enableSSHManagerIntegration() {
+    try {
+      const state = await this.getSSHManagerState();
+      
+      if (state.enabled) {
+        return {
+          success: true,
+          message: 'SSH Manager integration is already enabled',
+          alreadyEnabled: true
+        };
+      }
+
+      // Re-add the Include directive
+      await this.updateMainSSHConfig();
+      
+      return {
+        success: true,
+        message: 'SSH Manager integration enabled successfully'
+      };
+    } catch (error) {
+      throw new Error(`Failed to enable SSH Manager integration: ${error.message}`);
+    }
   }
 
 }

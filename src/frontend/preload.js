@@ -19,7 +19,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     verifyConfigIntegrity: () => ipcRenderer.invoke('ssh:verify-config-integrity'),
     connectToServer: (name, group) => ipcRenderer.invoke('ssh:connect-to-server', name, group),
     migrateExistingConnection: (connectionName, toGroup) => ipcRenderer.invoke('ssh:migrate-existing-connection', connectionName, toGroup),
-    createBackup: (backupPath) => ipcRenderer.invoke('ssh:create-backup', backupPath)
+    createBackup: (backupPath) => ipcRenderer.invoke('ssh:create-backup', backupPath),
+    getManagerState: () => ipcRenderer.invoke('ssh:get-manager-state'),
+    revertToOriginalConfig: () => ipcRenderer.invoke('ssh:revert-to-original-config'),
+    enableManagerIntegration: () => ipcRenderer.invoke('ssh:enable-manager-integration')
   },
   dialog: {
     saveFile: (options) => ipcRenderer.invoke('dialog:save-file', options)
