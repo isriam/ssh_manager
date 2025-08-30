@@ -1,6 +1,6 @@
 # SSH Manager
 
-A cross-platform GUI application for managing SSH configurations through organized folders and visual forms, distributed via npm with desktop shortcuts.
+A streamlined cross-platform GUI application for managing SSH configurations through organized folders and visual forms. Simple git clone and launch workflow with minimal dependencies.
 
 <div align="center">
   <img src="./assets/icons/ssh_manager_128.png" alt="SSH Manager Icon" width="64" height="64">
@@ -12,12 +12,27 @@ SSH Manager simplifies the management of multiple SSH connections by providing:
 
 - 🖥️ **Visual Configuration**: Easy-to-use forms instead of editing config files
 - 📁 **Organized Storage**: Group connections by work/personal/projects  
-- 🚀 **One-Click Connections**: Desktop shortcuts for quick SSH access
+- 🚀 **One-Click Connections**: Launch SSH sessions directly from the GUI
 - 📋 **Template System**: Pre-built configurations for common setups
 - 🌍 **Cross-Platform**: Works on macOS, Windows, and Linux
 - 🔐 **SSH Key Management**: Generate and manage SSH keys with proper permissions
 - 🔧 **Developer Features**: Port forwarding, multiplexing, X11 forwarding
-- 🔒 **Secure**: No logging of sensitive data, proper validation
+- 🔄 **Backup & Restore**: Revert to original SSH config when needed
+- ⚡ **Minimal Setup**: Just git clone and npm start
+
+## Getting Started
+
+### Quick Launch
+```bash
+git clone https://github.com/isriam/ssh_manager.git
+cd ssh_manager
+npm start
+```
+
+**First run**: Automatically installs dependencies (~18 seconds) and launches the GUI  
+**Subsequent runs**: Launches immediately
+
+That's it! No separate installation step required.
 
 ## Target Users
 
@@ -26,13 +41,6 @@ SSH Manager simplifies the management of multiple SSH connections by providing:
 - System administrators with complex SSH setups
 - Users requiring SOCKS proxy and connection multiplexing
 - Anyone who frequently connects to remote systems
-
-## Installation
-
-```bash
-npm install -g ssh-manager
-ssh-manager create-shortcut  # Creates desktop shortcut
-```
 
 ## Interface Overview
 
@@ -60,17 +68,10 @@ ssh-manager create-shortcut  # Creates desktop shortcut
 - **Real-time Validation**: SSH config syntax checking
 - **Integration**: Seamless integration with system SSH client
 
-## Quick Start
-
-1. Install the package globally via npm
-2. Run `ssh-manager create-shortcut` to add desktop icon
-3. Click the desktop shortcut to open the GUI
-4. Add your first SSH connection using the visual form
-5. Organize connections into folders (work/personal/projects)
-
 ## Features
 
-- **GUI Interface**: Electron-based desktop application
+### Core Features
+- **GUI Interface**: Clean Electron-based desktop application
 - **Visual Forms**: Add/edit SSH connections without touching config files
 - **Connection Management**: One-click SSH launching with advanced settings
 - **Developer Features**: Connection multiplexing, X11/agent forwarding, port forwarding
@@ -79,26 +80,17 @@ ssh-manager create-shortcut  # Creates desktop shortcut
 - **SSH Key Management**: Generate, import, and assign SSH keys
 - **Export Configurations**: Export SSH configurations as text files for backup purposes
 - **Connection Testing**: Verify SSH connectivity
-- **Cross-Platform Distribution**: macOS, Windows, and Linux packages
 
-## Architecture
+### Backup & Restore System
+- **Automatic Backup**: Creates backup of original SSH config during first setup
+- **Revert to Original**: Menu option to restore your original SSH configuration
+- **Enable/Disable Integration**: Toggle SSH Manager integration on/off
+- **State Detection**: App automatically detects and adapts to current integration state
+- **Read-Only Mode**: Shows configurations as read-only when integration is disabled
 
-```
-┌─────────────────────────────────────────┐
-│             Desktop Shortcut            │
-│          (OS-specific icon)             │
-└─────────────┬───────────────────────────┘
-              │
-┌─────────────▼───────────────────────────┐
-│         Electron Main Process          │
-│        (Node.js Backend Logic)          │
-└─────────────┬───────────────────────────┘
-              │
-┌─────────────▼───────────────────────────┐
-│        Electron Renderer Process       │
-│         (HTML/CSS/JS Frontend)          │
-└─────────────────────────────────────────┘
-```
+### Menu Options
+- **File → Revert to Original SSH Config**: Restore your original SSH configuration
+- **File → Enable SSH Manager Integration**: Re-enable SSH Manager after reverting
 
 ## File Organization
 
@@ -111,10 +103,34 @@ SSH Manager creates an organized structure in your home directory:
 │   ├── personal/       # Personal servers
 │   └── projects/       # Project-specific connections
 ├── keys/               # SSH key files organized by category
-└── templates/          # Configuration templates
+├── templates/          # Configuration templates
+└── backups/            # Configuration backups
+
+~/.ssh/
+├── config              # Your main SSH config (modified to include SSH Manager)
+└── config.ssh-manager-backup  # Backup of your original SSH config
 ```
 
-Your main SSH config (`~/.ssh/config`) will include these organized files automatically.
+Your main SSH config (`~/.ssh/config`) will include the organized SSH Manager files automatically via an Include directive.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│              npm start                  │
+│         (Auto-install & Launch)         │
+└─────────────┬───────────────────────────┘
+              │
+┌─────────────▼───────────────────────────┐
+│         Electron Main Process          │
+│        (Node.js Backend Logic)          │
+└─────────────┬───────────────────────────┘
+              │
+┌─────────────▼───────────────────────────┐
+│        Electron Renderer Process       │
+│         (HTML/CSS/JS Frontend)          │
+└─────────────────────────────────────────┘
+```
 
 ## Development
 
@@ -146,32 +162,46 @@ ssh_manager/
 ```bash
 git clone https://github.com/isriam/ssh_manager.git
 cd ssh_manager
-npm install
+npm start                    # Auto-installs deps and launches
+```
+
+For development mode with DevTools:
+```bash
 npm run dev
 ```
 
 ### Available Scripts
 ```bash
-npm start          # Launch the application
-npm run dev        # Development mode with DevTools
-npm run build      # Build distribution packages
-npm run test       # Run test suite
-npm run lint       # Code linting
+npm start              # Auto-install dependencies (if needed) and launch
+npm run dev            # Development mode with DevTools
+npm run create-shortcut # Create desktop shortcut
 ```
+
+## Technical Details
+
+### Minimal Dependencies
+SSH Manager uses only essential runtime dependencies:
+- `electron` - Desktop application framework
+- `ssh-config` - SSH configuration parsing
+- `fs-extra` - Enhanced file operations
+- `node-ssh` - SSH connection testing
+- `commander` - CLI interface
+- `archiver` - Backup functionality
+
+**Total packages**: ~124 (down from 600+ in typical Electron apps)  
+**Installation time**: ~18 seconds  
+**No build step required** - just clone and run
 
 ## Contributing
 
 This project is designed for network engineers and developers who need better SSH connection management. Contributions welcome!
 
-### Adding Screenshots
-Want to help improve the documentation? You can contribute screenshots:
-1. Run `npm run dev` to launch the application
-2. Create sample connections to showcase features
-3. Take screenshots following the guidelines in `assets/screenshots/README.md`
-4. Submit a PR with the screenshots
-
-### Development
-See the [Development Setup](#development-setup) section below for getting started with development.
+### Development Workflow
+1. Fork the repository
+2. Clone your fork: `git clone <your-fork-url>`
+3. Make changes: `cd ssh_manager && npm start`
+4. Test your changes
+5. Submit a pull request
 
 ## License
 
@@ -184,9 +214,10 @@ SSH Manager is a defensive security tool focused on:
 - No logging of sensitive data
 - Proper file permission handling
 - Input validation and sanitization
+- Safe backup and restore operations
 
 ---
 
-**Version**: 0.1.3  
+**Version**: 0.1.2  
 **Repository**: https://github.com/isriam/ssh_manager  
-**npm Package**: `ssh-manager`
+**Dependencies**: Minimal Electron setup (~124 packages)
