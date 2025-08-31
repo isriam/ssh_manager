@@ -1,6 +1,15 @@
 const SSHConfig = require('ssh-config');
 const FileUtils = require('./file-utils');
 const Templates = require('./templates');
+const { exec, spawn, execSync } = require('child_process');
+const { promisify } = require('util');
+const fs = require('fs-extra');
+const path = require('path');
+const os = require('os');
+const archiver = require('archiver');
+const { NodeSSH } = require('node-ssh');
+
+const execAsync = promisify(exec);
 
 class SSHManager {
   constructor() {
@@ -52,7 +61,7 @@ class SSHManager {
       throw new Error(`Connection '${name}' already exists in group '${group}'`);
     }
 
-    const currentUser = require('os').userInfo().username;
+    const currentUser = os.userInfo().username;
     const templateVariables = {
       name: name,
       host: host,
@@ -92,7 +101,7 @@ class SSHManager {
     return {
       name,
       host,
-      user: user || require('os').userInfo().username,
+      user: user || os.userInfo().username,
       port,
       group,
       configPath: this.fileUtils.getSSHManagerPath()
@@ -234,7 +243,7 @@ class SSHManager {
 
     // For comprehensive updates, it's better to regenerate the config from template
     // This ensures all new options are properly formatted and included
-    const currentUser = require('os').userInfo().username;
+    const currentUser = os.userInfo().username;
     const templateVariables = {
       name: updates.name || name,
       host: updates.host || 'localhost',
@@ -303,9 +312,6 @@ class SSHManager {
   async verifySSHConfigIntegrity() {
     try {
       // Test SSH config parsing
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
 
       // Use SSH's built-in config test
       await execAsync('ssh -F ~/.ssh/config -T git@github.com 2>/dev/null || true');
@@ -458,9 +464,6 @@ class SSHManager {
     return await this.templates.listTemplates();
   }
 
-  async createFromTemplate(templateName, variables) {
-    return await this.templates.createFromTemplate(templateName, variables);
-  }
 
   async getGroups() {
     const groups = await this.fileUtils.listGroups();
@@ -655,8 +658,7 @@ class SSHManager {
 
   async commentOutExistingConnection(connectionName) {
     try {
-      const mainConfigPath = require('path').join(require('os').homedir(), '.ssh', 'config');
-      const fs = require('fs-extra');
+      const mainConfigPath = path.join(os.homedir(), '.ssh', 'config');
       
       let configContent = await fs.readFile(mainConfigPath, 'utf8');
       const lines = configContent.split('\n');
@@ -710,9 +712,6 @@ class SSHManager {
     if (group === 'existing') {
       // For existing connections, test by trying SSH directly since they're in main config
       try {
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
         
         // Test if SSH can parse the configuration
         await execAsync(`ssh -F ~/.ssh/config -o ConnectTimeout=2 -o BatchMode=yes ${name} echo "test"`, { timeout: 5000 });
@@ -769,9 +768,6 @@ class SSHManager {
 
     // Test with SSH dry-run to verify config is readable
     try {
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
       
       // Test if SSH can parse the configuration
       await execAsync(`ssh -F ~/.ssh/config -o ConnectTimeout=2 -o BatchMode=yes ${name} echo "test"`, { timeout: 5000 });
@@ -800,12 +796,10 @@ class SSHManager {
     }
 
     // If we get here, try actual connection test with node-ssh
-    const { NodeSSH } = require('node-ssh');
     const ssh = new NodeSSH();
 
     try {
-      const keyPath = config.keyFile.replace('~', require('os').homedir());
-      const fs = require('fs');
+      const keyPath = config.keyFile.replace('~', os.homedir());
       
       // Check if key file exists and is readable
       if (!fs.existsSync(keyPath)) {
@@ -860,9 +854,6 @@ class SSHManager {
   // Individual connection testing works fine via testConnection()
 
   async createBackup(backupPath) {
-    const archiver = require('archiver');
-    const fs = require('fs-extra');
-    const path = require('path');
     
     try {
       // Get async data first
@@ -918,7 +909,7 @@ class SSHManager {
           }
 
           // Add main SSH config (backup copy)
-          const mainConfigPath = path.join(require('os').homedir(), '.ssh', 'config');
+          const mainConfigPath = path.join(os.homedir(), '.ssh', 'config');
           if (fs.existsSync(mainConfigPath)) {
             archive.file(mainConfigPath, { name: 'ssh_config_backup.txt' });
           }
@@ -930,9 +921,9 @@ class SSHManager {
           const metadata = {
             version: '0.1.2',
             created: new Date().toISOString(),
-            platform: require('os').platform(),
-            hostname: require('os').hostname(),
-            user: require('os').userInfo().username,
+            platform: os.platform(),
+            hostname: os.hostname(),
+            user: os.userInfo().username,
             connections: connections,
             groups: groups
           };
@@ -985,8 +976,6 @@ class SSHManager {
       };
       
       // Launch SSH connection in terminal
-      const { spawn } = require('child_process');
-      const os = require('os');
       
       try {
         const terminalConfig = this.getTerminalCommand(sshCommand.simple, os);
@@ -1019,8 +1008,6 @@ class SSHManager {
     const sshCommand = await this.getConnectionSSHCommand(name, group);
     
     // Launch SSH connection in terminal
-    const { spawn } = require('child_process');
-    const os = require('os');
     
     try {
       const terminalConfig = this.getTerminalCommand(sshCommand.simple, os);
@@ -1064,7 +1051,7 @@ class SSHManager {
       for (const terminal of terminals) {
         try {
           // Check if terminal exists
-          require('child_process').execSync(`which ${terminal}`, { stdio: 'ignore' });
+          execSync(`which ${terminal}`, { stdio: 'ignore' });
           
           if (terminal === 'gnome-terminal') {
             return {
