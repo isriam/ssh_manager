@@ -2,34 +2,37 @@
 
 ## Project Overview
 
-SSH Manager is a streamlined cross-platform GUI desktop application built with Electron that simplifies SSH configuration management through organized folders and visual forms. It follows a minimal dependency approach with simple git clone and launch workflow.
+SSH Manager is a streamlined cross-platform desktop application built with Python and Tkinter that simplifies SSH configuration management through organized folders and visual forms. It provides both CLI and GUI interfaces with minimal dependencies.
 
 ## Core Philosophy
 
-- **Simplicity**: Minimal dependencies (~124 packages vs typical 600+)
+- **Simplicity**: Minimal dependencies (2 Python packages + standard library)
 - **Security**: Defensive security tool with proper backup/restore
-- **Usability**: Visual forms instead of manual config file editing
+- **Usability**: Both CLI and GUI interfaces for maximum flexibility
 - **Organization**: Group connections by work/personal/projects
-- **Cross-Platform**: Works on macOS, Windows, and Linux
+- **Cross-Platform**: Python-based, works on macOS, Windows, and Linux
 
 ## Project Structure
 
 ```
 ssh_manager/
 ├── src/
-│   ├── main.js              # Electron main process & IPC handlers  
-│   ├── backend/             # Core SSH management logic
-│   │   ├── ssh-manager.js   # Main SSH management class
-│   │   ├── file-utils.js    # File system utilities  
-│   │   └── templates.js     # SSH config templates
-│   └── frontend/            # GUI interface
-│       ├── index.html       # Main application window
-│       ├── app.js           # Frontend application logic
-│       ├── preload.js       # Electron preload script
-│       └── styles.css       # Application styles
+│   └── ssh_manager/
+│       ├── main.py              # CLI/GUI entry point
+│       ├── backend/             # Core SSH management logic
+│       │   ├── ssh_manager.py   # Main SSH management class
+│       │   ├── file_utils.py    # File system utilities  
+│       │   └── templates.py     # SSH config templates
+│       └── gui/                 # GUI interface (Tkinter)
+│           ├── main.py          # Main GUI application
+│           ├── connection_tree.py # Connection tree view
+│           └── dialogs/         # Dialog windows
+│               ├── add_connection.py
+│               └── edit_connection.py
 ├── assets/icons/            # App icons (all platforms)
 ├── config/                  # SSH configuration files organized by groups
-├── bin/ssh-manager.js       # CLI entry point
+├── requirements.txt         # Python dependencies
+├── setup.py                 # Python package setup
 └── templates/               # SSH config templates
 ```
 
@@ -63,28 +66,40 @@ ssh_manager/
 
 ## Architecture
 
-### Electron Structure
+### Python/Tkinter Structure
 ```
 ┌─────────────────────────────────────────┐
-│              npm start                  │
-│         (Auto-install & Launch)         │
+│            ./run.sh or                  │
+│         python3 start.py               │
 └─────────────┬───────────────────────────┘
               │
 ┌─────────────▼───────────────────────────┐
-│         Electron Main Process          │
-│        (Node.js Backend Logic)          │
+│         Python Main Process            │
+│         (CLI/GUI Entry Point)          │
+│    - Command line argument parsing     │
+│    - GUI/CLI mode selection           │
+│    - Virtual environment handling      │
+└─────────────┬───────────────────────────┘
+              │
+      ┌───────┴────────┐
+      ▼                ▼
+┌──────────┐    ┌──────────────┐
+│ CLI Mode │    │   GUI Mode   │
+│          │    │   (Tkinter)  │
+│ - Direct │    │ - Main window│
+│   SSH    │    │ - Tree view  │
+│   mgmt   │    │ - Dialogs    │
+│ - Terminal│    │ - Menus     │
+│   output │    │              │
+└──────────┘    └──────────────┘
+              │
+┌─────────────▼───────────────────────────┐
+│           Backend Services              │
+│         (Pure Python Classes)          │
 │    - SSH configuration management      │
-│    - File system operations            │
-│    - Template processing               │
-│    - IPC handlers                      │
-└─────────────┬───────────────────────────┘
-              │
-┌─────────────▼───────────────────────────┐
-│        Electron Renderer Process       │
-│         (HTML/CSS/JS Frontend)          │
-│    - Connection sidebar tree view      │
-│    - Add/Edit connection forms         │
-│    - Real-time validation              │
+│    - File system operations           │
+│    - Template processing              │
+│    - Connection testing (paramiko)     │
 └─────────────────────────────────────────┘
 ```
 
@@ -151,21 +166,23 @@ SSH Manager creates organized structure:
 
 ## Dependencies
 
-**Runtime Dependencies** (minimal approach):
-```json
-{
-  "electron": "^28.0.0",      // Desktop application framework
-  "ssh-config": "^4.1.6",     // SSH config parsing/generation
-  "fs-extra": "^11.1.1",      // Enhanced file operations
-  "node-ssh": "^13.1.0",      // SSH connection testing
-  "commander": "^11.1.0",     // CLI interface
-  "archiver": "^6.0.2"        // Backup functionality
-}
+**Runtime Dependencies** (minimal Python approach):
+```python
+# requirements.txt
+paramiko>=3.0.0    # SSH connection and testing
+sshtunnel>=0.4.0   # SSH tunneling support
+
+# Built-in Python modules used:
+# - tkinter (GUI framework)
+# - pathlib, os (file operations)  
+# - subprocess (terminal launching)
+# - argparse (CLI interface)
+# - zipfile (backup functionality)
 ```
 
-**Total packages**: ~124 (vs typical 600+ in Electron apps)
-**Installation time**: ~18 seconds
-**No build step required**: Direct execution
+**Total packages**: 2 external + Python standard library
+**Installation time**: ~10 seconds  
+**No build step required**: Pure Python execution
 
 ## Development Workflow
 
@@ -173,18 +190,37 @@ SSH Manager creates organized structure:
 ```bash
 git clone https://github.com/isriam/ssh_manager.git
 cd ssh_manager
-npm start                    # Auto-installs deps and launches
+
+# Set up virtual environment
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# Install GUI support (Linux)
+sudo apt install python3-tk
+
+# Test the application
+./run.sh init
+./run.sh list
+./run.sh gui
 ```
 
 ### Development Mode
 ```bash
-npm run dev                  # Opens with DevTools
+# Run with verbose output for debugging
+python3 -u src/ssh_manager/main.py gui
+
+# Test CLI functionality
+python3 src/ssh_manager/main.py --help
+python3 src/ssh_manager/main.py init
+python3 src/ssh_manager/main.py add -n "test" --host "example.com" -u "user"
 ```
 
-### Available Scripts
-- `npm start`: Auto-install dependencies and launch
-- `npm run dev`: Development mode with DevTools
-- `npm run create-shortcut`: Create desktop shortcut
+### Available Launch Methods
+- `./run.sh`: Launch GUI (recommended)
+- `./run.sh --help`: Show CLI commands
+- `python3 start.py`: Alternative Python launcher
+- Direct execution via `python3 src/ssh_manager/main.py`
 
 ## Security Considerations
 

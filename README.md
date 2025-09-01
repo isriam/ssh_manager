@@ -1,6 +1,6 @@
 # SSH Manager
 
-A streamlined cross-platform GUI application for managing SSH configurations through organized folders and visual forms. Simple git clone and launch workflow with minimal dependencies.
+A streamlined cross-platform GUI application for managing SSH configurations through organized folders and visual forms. Built with Python and Tkinter for maximum compatibility and minimal dependencies.
 
 <div align="center">
   <img src="./assets/icons/ssh_manager_128.png" alt="SSH Manager Icon" width="64" height="64">
@@ -12,27 +12,48 @@ SSH Manager simplifies the management of multiple SSH connections by providing:
 
 - 🖥️ **Visual Configuration**: Easy-to-use forms instead of editing config files
 - 📁 **Organized Storage**: Group connections by work/personal/projects  
-- 🚀 **One-Click Connections**: Launch SSH sessions directly from the GUI
+- 🚀 **One-Click Connections**: Launch SSH sessions directly from the GUI/CLI
 - 📋 **Template System**: Pre-built configurations for common setups
 - 🌍 **Cross-Platform**: Works on macOS, Windows, and Linux
 - 🔐 **SSH Key Management**: Generate and manage SSH keys with proper permissions
 - 🔧 **Developer Features**: Port forwarding, multiplexing, X11 forwarding
 - 🔄 **Backup & Restore**: Revert to original SSH config when needed
-- ⚡ **Minimal Setup**: Just git clone and npm start
+- ⚡ **Minimal Setup**: Python-based with minimal dependencies
+- 🖥️ **CLI + GUI**: Full command-line interface plus optional GUI
 
 ## Getting Started
 
-### Quick Launch
+### Prerequisites
+- Python 3.8 or higher
+- Linux: `python3-tkinter` for GUI (install via package manager)
+
+### Quick Setup
 ```bash
 git clone https://github.com/isriam/ssh_manager.git
 cd ssh_manager
-npm start
+
+# Create virtual environment (recommended)
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install paramiko sshtunnel
+
+# Initialize SSH Manager
+python3 src/ssh_manager/main.py init
 ```
 
-**First run**: Automatically installs dependencies (~18 seconds) and launches the GUI  
-**Subsequent runs**: Launches immediately
+### Launch Options
+```bash
+# CLI Interface (always available)
+python3 src/ssh_manager/main.py --help
 
-That's it! No separate installation step required.
+# GUI Interface (requires tkinter)
+python3 src/ssh_manager/main.py gui
+
+# Default (launches GUI if available, otherwise shows CLI help)
+python3 src/ssh_manager/main.py
+```
 
 ## Target Users
 
@@ -162,35 +183,82 @@ ssh_manager/
 ```bash
 git clone https://github.com/isriam/ssh_manager.git
 cd ssh_manager
-npm start                    # Auto-installs deps and launches
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# For GUI support (Linux)
+sudo apt install python3-tk
+
+# Initialize and test
+./run.sh init
+./run.sh list
 ```
 
-For development mode with DevTools:
+### Available Launch Methods
 ```bash
-npm run dev
+./run.sh                    # Launch GUI (recommended)
+./run.sh --help            # Show CLI help
+python3 start.py            # Alternative launcher
+python3 src/ssh_manager/main.py gui  # Direct execution
 ```
 
-### Available Scripts
+## CLI Usage Examples
+
+### Basic Commands
 ```bash
-npm start              # Auto-install dependencies (if needed) and launch
-npm run dev            # Development mode with DevTools
-npm run create-shortcut # Create desktop shortcut
+# Initialize SSH Manager
+python3 src/ssh_manager/main.py init
+
+# Add a connection
+python3 src/ssh_manager/main.py add -n "web-server" --host "192.168.1.100" -u "admin" -g "work"
+
+# List all connections
+python3 src/ssh_manager/main.py list
+
+# List connections in specific group
+python3 src/ssh_manager/main.py list -g work
+
+# Connect to a server
+python3 src/ssh_manager/main.py connect web-server -g work
+
+# Test connection
+python3 src/ssh_manager/main.py test web-server -g work
+
+# View all groups
+python3 src/ssh_manager/main.py groups
+
+# Create backup
+python3 src/ssh_manager/main.py backup -o my_ssh_backup.zip
+```
+
+### Advanced Connection Options
+```bash
+# Add connection with custom template and port
+python3 src/ssh_manager/main.py add \
+  -n "database-server" \
+  --host "db.example.com" \
+  -u "dbadmin" \
+  -p 2222 \
+  -g "databases" \
+  -t "basic-server" \
+  -k "~/.ssh/db_key"
 ```
 
 ## Technical Details
 
 ### Minimal Dependencies
-SSH Manager uses only essential runtime dependencies:
-- `electron` - Desktop application framework
-- `ssh-config` - SSH configuration parsing
-- `fs-extra` - Enhanced file operations
-- `node-ssh` - SSH connection testing
-- `commander` - CLI interface
-- `archiver` - Backup functionality
+SSH Manager uses only essential Python packages:
+- `paramiko` - SSH connection and testing
+- `sshtunnel` - SSH tunneling support  
+- `tkinter` - GUI framework (built into Python)
 
-**Total packages**: ~124 (down from 600+ in typical Electron apps)  
-**Installation time**: ~18 seconds  
-**No build step required** - just clone and run
+**Total dependencies**: 2 packages + Python standard library  
+**No build step required** - pure Python application
 
 ## Contributing
 
