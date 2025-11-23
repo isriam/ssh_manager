@@ -71,8 +71,8 @@ class AddConnectionDialog:
         basic_frame = ttk.Frame(self.notebook)
         self.notebook.add(basic_frame, text="Basic")
         
-        # Configure grid
-        for i in range(10):
+        # Configure grid (increased range for helper text rows)
+        for i in range(15):
             basic_frame.grid_rowconfigure(i, weight=0)
         basic_frame.grid_columnconfigure(1, weight=1)
         
@@ -91,10 +91,18 @@ class AddConnectionDialog:
         row += 1
         
         # Username
-        ttk.Label(basic_frame, text="Username:").grid(row=row, column=0, sticky="w", padx=(10, 5), pady=5)
+        username_label = ttk.Label(basic_frame, text="Username (optional):")
+        username_label.grid(row=row, column=0, sticky="w", padx=(10, 5), pady=5)
+
         self.user_var = tk.StringVar(value=os.getenv('USER', ''))
-        ttk.Entry(basic_frame, textvariable=self.user_var, width=40).grid(row=row, column=1, sticky="ew", padx=(0, 10), pady=5)
-        row += 1
+        username_entry = ttk.Entry(basic_frame, textvariable=self.user_var, width=40)
+        username_entry.grid(row=row, column=1, sticky="ew", padx=(0, 10), pady=5)
+
+        # Add helper text
+        username_help = ttk.Label(basic_frame, text=f"Defaults to: {os.getenv('USER', 'current user')}",
+                                 font=("Arial", 8), foreground="gray")
+        username_help.grid(row=row+1, column=1, sticky="w", padx=(0, 10), pady=0)
+        row += 2
         
         # Port
         ttk.Label(basic_frame, text="Port:").grid(row=row, column=0, sticky="w", padx=(10, 5), pady=5)
@@ -103,12 +111,17 @@ class AddConnectionDialog:
         row += 1
         
         # Group
-        ttk.Label(basic_frame, text="Group:").grid(row=row, column=0, sticky="w", padx=(10, 5), pady=5)
+        ttk.Label(basic_frame, text="Group/Folder:").grid(row=row, column=0, sticky="w", padx=(10, 5), pady=5)
         self.group_var = tk.StringVar(value="personal")
         group_combo = ttk.Combobox(basic_frame, textvariable=self.group_var, width=37)
         group_combo.grid(row=row, column=1, sticky="ew", padx=(0, 10), pady=5)
         self.group_combo = group_combo
-        row += 1
+
+        # Add helper text for group
+        group_help = ttk.Label(basic_frame, text="Select existing or type new. Use 'folder/subfolder' for nested groups",
+                              font=("Arial", 8), foreground="gray")
+        group_help.grid(row=row+1, column=1, sticky="w", padx=(0, 10), pady=0)
+        row += 2
         
         # Template
         ttk.Label(basic_frame, text="Template:").grid(row=row, column=0, sticky="w", padx=(10, 5), pady=5)
