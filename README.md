@@ -1,291 +1,346 @@
 # SSH Manager
 
-A streamlined cross-platform GUI application for managing SSH configurations through organized folders and visual forms. Built with Python and Tkinter for maximum compatibility and minimal dependencies.
+A clean, focused SSH session manager inspired by SecureCRT. Manage your SSH connections with a simple GUI instead of manually editing config files.
 
-<div align="center">
-  <img src="./assets/icons/ssh_manager_128.png" alt="SSH Manager Icon" width="64" height="64">
-</div>
+![SSH Manager](https://img.shields.io/badge/Python-3.8+-blue.svg)
+![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-## Overview
+## Features
 
-SSH Manager simplifies the management of multiple SSH connections by providing:
+- 🖥️ **Simple GUI** - Clean PySide6 interface for managing SSH connections
+- 📁 **Nested Folders** - Organize connections in hierarchical folders (work/clients/acme/production)
+- 🚀 **One-Click Connect** - Double-click to launch SSH in your terminal
+- 🔧 **SSH Features** - Port forwards, jump hosts, custom keys
+- 🎨 **Color Coding** - Tag connections as Production (🔴), Staging (🟡), Development (🟢)
+- 🔍 **Quick Search** - Real-time filtering across all connections
+- 💾 **Native SSH Config** - Uses standard SSH config files with Include statements
+- 🔒 **Non-Invasive** - Leaves your existing ~/.ssh/config untouched
 
-- 🖥️ **Visual Configuration**: Easy-to-use forms instead of editing config files
-- 📁 **Organized Storage**: Group connections by work/personal/projects  
-- 🚀 **One-Click Connections**: Launch SSH sessions directly from the GUI/CLI
-- 📋 **Template System**: Pre-built configurations for common setups
-- 🌍 **Cross-Platform**: Works on macOS, Windows, and Linux
-- 🔐 **SSH Key Management**: Generate and manage SSH keys with proper permissions
-- 🔧 **Developer Features**: Port forwarding, multiplexing, X11 forwarding
-- 🔄 **Backup & Restore**: Revert to original SSH config when needed
-- ⚡ **Minimal Setup**: Python-based with minimal dependencies
-- 🖥️ **CLI + GUI**: Full command-line interface plus optional GUI
-
-## Getting Started
+## Installation
 
 ### Prerequisites
-- Python 3.8 or higher
-- Linux: `python3-tkinter` for GUI (install via package manager)
+
+- **Python 3.8+** (check: `python3 --version`)
+- **Linux** (currently supports Linux; macOS/Windows support planned)
+- **SSH client** (already installed on most Linux systems)
 
 ### Quick Setup
+
 ```bash
-git clone https://github.com/isriam/ssh_manager.git
+# Clone the repository
+git clone https://github.com/yourusername/ssh_manager.git
 cd ssh_manager
 
 # Create virtual environment (recommended)
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies
-pip install paramiko sshtunnel
-
-# Initialize SSH Manager
-python3 src/ssh_manager/main.py init
-```
-
-### Launch Options
-```bash
-# CLI Interface (always available)
-python3 src/ssh_manager/main.py --help
-
-# GUI Interface (requires tkinter)
-python3 src/ssh_manager/main.py gui
-
-# Default (launches GUI if available, otherwise shows CLI help)
-python3 src/ssh_manager/main.py
-```
-
-## Target Users
-
-- Network engineers managing multiple servers
-- Developers needing X11 forwarding and port tunneling
-- System administrators with complex SSH setups
-- Users requiring SOCKS proxy and connection multiplexing
-- Anyone who frequently connects to remote systems
-
-## Interface Overview
-
-### 🖥️ Main Application Window
-- **Connection Sidebar**: Organized tree view with collapsible groups (work/personal/projects)
-- **Connection Details**: Right panel showing selected connection information
-- **Quick Actions**: Connect, Edit, Test, and Delete buttons for each connection
-- **Search & Filter**: Find connections quickly across all groups
-
-### ➕ Add Connection Dialog  
-- **Simple Form**: Name, hostname, username, port, and SSH key selection
-- **Template Selection**: Choose from Basic Server, AWS EC2, Jump Host, Developer, etc.
-- **Advanced Options**: Connection timeouts, compression, host key checking
-- **Developer Features**: Port forwarding, X11 forwarding, agent forwarding
-
-### ✏️ Edit Connection Interface
-- **Comprehensive Settings**: All SSH configuration options in organized sections
-- **Port Forward Management**: Add/remove local and remote port forwards
-- **Connection Testing**: Built-in SSH connectivity testing
-- **Template Migration**: Change connection templates while preserving settings
-
-### 📊 Connection Management
-- **Drag & Drop**: Move connections between groups easily
-- **Bulk Operations**: Export configurations, backup settings
-- **Real-time Validation**: SSH config syntax checking
-- **Integration**: Seamless integration with system SSH client
-
-## Features
-
-### Core Features
-- **GUI Interface**: Clean Electron-based desktop application
-- **Visual Forms**: Add/edit SSH connections without touching config files
-- **Connection Management**: One-click SSH launching with advanced settings
-- **Developer Features**: Connection multiplexing, X11/agent forwarding, port forwarding
-- **SOCKS Proxy**: Dynamic port forwarding for secure tunneling
-- **Templates**: Pre-built configurations (Basic Server, Developer Workstation, AWS EC2, Jump Host)
-- **SSH Key Management**: Generate, import, and assign SSH keys
-- **Export Configurations**: Export SSH configurations as text files for backup purposes
-- **Connection Testing**: Verify SSH connectivity
-
-### Backup & Restore System
-- **Automatic Backup**: Creates backup of original SSH config during first setup
-- **Revert to Original**: Menu option to restore your original SSH configuration
-- **Enable/Disable Integration**: Toggle SSH Manager integration on/off
-- **State Detection**: App automatically detects and adapts to current integration state
-- **Read-Only Mode**: Shows configurations as read-only when integration is disabled
-
-### Menu Options
-- **File → Revert to Original SSH Config**: Restore your original SSH configuration
-- **File → Enable SSH Manager Integration**: Re-enable SSH Manager after reverting
-
-## File Organization
-
-SSH Manager creates an organized structure in your home directory:
-
-```
-~/ssh_manager/
-├── config/
-│   ├── work/           # Work-related SSH connections
-│   ├── personal/       # Personal servers
-│   └── projects/       # Project-specific connections
-├── keys/               # SSH key files organized by category
-├── templates/          # Configuration templates
-└── backups/            # Configuration backups
-
-~/.ssh/
-├── config              # Your main SSH config (modified to include SSH Manager)
-└── config.ssh-manager-backup  # Backup of your original SSH config
-```
-
-Your main SSH config (`~/.ssh/config`) will include the organized SSH Manager files automatically via an Include directive.
-
-## Architecture
-
-```
-┌─────────────────────────────────────────┐
-│              npm start                  │
-│         (Auto-install & Launch)         │
-└─────────────┬───────────────────────────┘
-              │
-┌─────────────▼───────────────────────────┐
-│         Electron Main Process          │
-│        (Node.js Backend Logic)          │
-└─────────────┬───────────────────────────┘
-              │
-┌─────────────▼───────────────────────────┐
-│        Electron Renderer Process       │
-│         (HTML/CSS/JS Frontend)          │
-└─────────────────────────────────────────┘
-```
-
-## Development
-
-### Project Structure
-```
-ssh_manager/
-├── src/
-│   ├── main.js              # Electron main process
-│   ├── backend/             # Core SSH management logic
-│   │   ├── ssh-manager.js   # Main SSH management class
-│   │   ├── file-utils.js    # File system utilities
-│   │   └── templates.js     # Template management
-│   └── frontend/            # GUI interface
-│       ├── index.html       # Main application window
-│       ├── app.js           # Frontend application logic
-│       ├── preload.js       # Electron preload script
-│       └── styles.css       # Application styles
-├── assets/
-│   └── icons/               # Application icons (all platforms)
-├── templates/               # SSH config templates
-├── bin/
-│   └── ssh-manager.js       # CLI entry point
-└── scripts/                 # Installation scripts
-    ├── postinstall.js       # Post-installation setup
-    └── preuninstall.js      # Pre-uninstall cleanup
-```
-
-### Development Setup
-```bash
-git clone https://github.com/isriam/ssh_manager.git
-cd ssh_manager
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
-
-# Install dependencies
+# Install dependencies (just PySide6)
 pip install -r requirements.txt
 
-# For GUI support (Linux)
-sudo apt install python3-tk
-
-# Initialize and test
-./run.sh init
-./run.sh list
+# Run the application
+python3 main.py
 ```
 
-### Available Launch Methods
+### First Run
+
+On first launch, SSH Manager will:
+1. Create `~/ssh_manager/groups/` directory for storing connections
+2. Create default folders: `work/` and `personal/`
+3. Check your existing `~/.ssh/config` and notify you if connections are found
+4. Add this line to the end of your `~/.ssh/config`:
+   ```
+   # SSH Manager - Auto-generated connections
+   Include ~/ssh_manager/groups/**/*.conf
+   ```
+
+**Your existing SSH config remains completely untouched.** SSH Manager connections live separately in `~/ssh_manager/groups/`.
+
+## Usage
+
+### Adding a Connection
+
+1. Click **[+] New Connection** in the toolbar
+2. Fill in the form:
+   - **Name**: Unique identifier (e.g., "production-api")
+   - **Hostname**: IP address or domain (e.g., "192.168.1.50")
+   - **Username**: SSH user (e.g., "deploy")
+   - **Port**: Default is 22
+   - **SSH Key**: Browse to your private key (e.g., `~/.ssh/id_ed25519`)
+   - **Folder**: Organize it (e.g., "work/clients/acme")
+   - **Color Tag**: Production, Staging, or Development
+3. (Optional) Expand **Advanced Settings** for:
+   - **Jump Host**: Bastion/proxy server
+   - **Local Port Forwards**: Forward ports from remote to local
+   - **Remote Port Forwards**: Forward ports from local to remote
+4. Click **Save**
+
+The connection appears in your tree and is immediately usable via `ssh production-api`.
+
+### Connecting to a Server
+
+**Three ways to connect:**
+
+1. **Double-click** a connection in the tree
+2. **Select** a connection and click **[Connect]** button
+3. **Right-click** a connection → **Connect**
+
+SSH Manager auto-detects your terminal (gnome-terminal, konsole, xterm, etc.) and opens a new window with your SSH session.
+
+### Organizing with Folders
+
+- **Create Folder**: Right-click parent folder → **New Subfolder**
+- **Move Connection**: Drag & drop connections between folders
+- **Delete Folder**: Right-click → **Delete Folder** (must be empty)
+
+Example hierarchy:
+```
+📁 work
+  📁 clients
+    📁 acme
+      💻 acme-prod    [🔴 Production]
+      💻 acme-staging [🟡 Staging]
+  💻 office-vpn
+📁 personal
+  💻 homeserver
+  💻 raspberry-pi
+```
+
+### Editing Connections
+
+- **Quick Edit**: Select connection → Press **F2** (or right-click → **Edit**)
+- **Duplicate**: Right-click → **Duplicate** (creates copy with "-copy" suffix)
+- **Delete**: Select connection → Press **Delete** (or right-click → **Delete**)
+
+### Searching
+
+Use the search bar to filter connections in real-time. Searches across:
+- Connection names
+- Hostnames
+- Usernames
+- Folder names
+
+### Keyboard Shortcuts
+
+- **Ctrl+N** - New connection
+- **F2** - Edit selected connection
+- **Delete** - Delete selected connection
+- **Enter** - Connect to selected connection
+- **Ctrl+F** - Focus search bar
+- **Ctrl+Q** - Quit application
+
+## How It Works
+
+### File Structure
+
+SSH Manager stores each connection as a separate `.conf` file:
+
+```
+~/ssh_manager/groups/
+├── work/
+│   ├── production-api.conf
+│   └── clients/
+│       └── acme/
+│           └── acme-prod.conf
+└── personal/
+    └── homeserver.conf
+```
+
+Each `.conf` file contains standard SSH config syntax:
+
+```ssh
+# File: ~/ssh_manager/groups/work/production-api.conf
+# SSH Manager Metadata: {"color": "production"}
+
+Host production-api
+    HostName 192.168.1.50
+    User deploy
+    Port 22
+    IdentityFile ~/.ssh/company_key
+    ProxyJump bastion.company.com
+    LocalForward 8080 localhost:80
+    LocalForward 5432 db.internal:5432
+```
+
+### SSH Config Integration
+
+Your `~/.ssh/config` includes all SSH Manager connections:
+
+```ssh
+# Your existing SSH config (untouched)
+Host old-server
+    HostName 10.0.0.1
+    User admin
+
+# SSH Manager - Auto-generated connections
+Include ~/ssh_manager/groups/**/*.conf
+```
+
+The `Include` statement (SSH native feature) loads all `.conf` files from subdirectories. This means:
+- ✅ All SSH tools work seamlessly (`ssh`, `scp`, `rsync`, `git`, etc.)
+- ✅ Your existing config stays intact
+- ✅ Easy to backup (just copy `~/ssh_manager/groups/`)
+- ✅ Easy to version control (Git each folder separately)
+
+## Advanced Features
+
+### Port Forwarding
+
+**Local Forward** (Access remote service locally):
+```
+Local Port: 8080
+Remote Host: localhost
+Remote Port: 80
+```
+SSH command: `ssh -L 8080:localhost:80 production-api`
+
+**Remote Forward** (Expose local service to remote):
+```
+Remote Port: 3000
+Local Host: localhost
+Local Port: 3000
+```
+SSH command: `ssh -R 3000:localhost:3000 production-api`
+
+### Jump Hosts (Bastion Servers)
+
+Connect to a server through an intermediate jump host:
+```
+Host: internal-server.local
+ProxyJump: bastion.company.com
+```
+SSH automatically connects to bastion first, then to internal-server.
+
+### Color Tagging
+
+Organize connections by environment:
+- 🔴 **Production** - Live servers (red badge)
+- 🟡 **Staging** - Testing environments (yellow badge)
+- 🟢 **Development** - Dev machines (green badge)
+
+Visual safety net to avoid mistakes (e.g., won't accidentally restart production).
+
+## Troubleshooting
+
+### Terminal Not Launching
+
+**Problem**: Double-clicking connection doesn't open terminal
+
+**Solution**: SSH Manager auto-detects terminals. If yours isn't detected, install a supported one:
 ```bash
-./run.sh                    # Launch GUI (recommended)
-./run.sh --help            # Show CLI help
-python3 start.py            # Alternative launcher
-python3 src/ssh_manager/main.py gui  # Direct execution
+# Ubuntu/Debian
+sudo apt install gnome-terminal
+
+# Fedora
+sudo dnf install gnome-terminal
+
+# Arch
+sudo pacman -S gnome-terminal
 ```
 
-## CLI Usage Examples
+Supported terminals: gnome-terminal, konsole, xfce4-terminal, alacritty, kitty, tilix, xterm
 
-### Basic Commands
+### Existing SSH Config Warning
+
+**Problem**: "We detected existing connections in ~/.ssh/config"
+
+**Solution**: This is normal. SSH Manager detects your existing config and leaves it alone. New connections you create via SSH Manager are stored separately in `~/ssh_manager/groups/`.
+
+If you want to manage existing connections, you can manually recreate them in SSH Manager, then remove from `~/.ssh/config`.
+
+### Permission Denied
+
+**Problem**: SSH connection fails with "Permission denied"
+
+**Solution**: Check your SSH key permissions:
 ```bash
-# Initialize SSH Manager
-python3 src/ssh_manager/main.py init
-
-# Add a connection
-python3 src/ssh_manager/main.py add -n "web-server" --host "192.168.1.100" -u "admin" -g "work"
-
-# List all connections
-python3 src/ssh_manager/main.py list
-
-# List connections in specific group
-python3 src/ssh_manager/main.py list -g work
-
-# Connect to a server
-python3 src/ssh_manager/main.py connect web-server -g work
-
-# Test connection
-python3 src/ssh_manager/main.py test web-server -g work
-
-# View all groups
-python3 src/ssh_manager/main.py groups
-
-# Create backup
-python3 src/ssh_manager/main.py backup -o my_ssh_backup.zip
+chmod 600 ~/.ssh/id_ed25519        # Private key
+chmod 644 ~/.ssh/id_ed25519.pub    # Public key
 ```
 
-### Advanced Connection Options
+SSH Manager doesn't manage key permissions - use standard SSH key setup.
+
+### PySide6 Installation Issues
+
+**Problem**: `pip install PySide6` fails or takes very long
+
+**Solution**: PySide6 is a large package (~100MB). Ensure you have:
+- Sufficient disk space
+- Good internet connection
+- Up-to-date pip: `pip install --upgrade pip`
+
+Alternative for testing without GUI:
 ```bash
-# Add connection with custom template and port
-python3 src/ssh_manager/main.py add \
-  -n "database-server" \
-  --host "db.example.com" \
-  -u "dbadmin" \
-  -p 2222 \
-  -g "databases" \
-  -t "basic-server" \
-  -k "~/.ssh/db_key"
+# Just generate SSH config files without GUI
+python3 -c "from core.config_manager import ConfigManager; ..."
 ```
 
-## Technical Details
+## Project Structure
 
-### Minimal Dependencies
-SSH Manager uses only essential Python packages:
-- `paramiko` - SSH connection and testing
-- `sshtunnel` - SSH tunneling support  
-- `tkinter` - GUI framework (built into Python)
-
-**Total dependencies**: 2 packages + Python standard library  
-**No build step required** - pure Python application
+```
+ssh_manager/
+├── main.py                  # Application entry point
+├── requirements.txt         # Dependencies (PySide6 only)
+├── README.md               # This file
+├── PROJECT_PLAN.md         # Technical documentation
+│
+├── core/                   # Business logic (no GUI)
+│   ├── connection.py       # Connection data model
+│   ├── config_manager.py   # SSH config file operations
+│   └── terminal_launcher.py # Terminal detection & SSH launching
+│
+└── ui/                     # GUI components
+    ├── main_window.py      # Main application window
+    ├── connection_tree.py  # Tree view widget
+    └── connection_dialog.py # Add/Edit connection dialog
+```
 
 ## Contributing
 
-This project is designed for network engineers and developers who need better SSH connection management. Contributions welcome!
-
-### Development Workflow
+Contributions welcome! Please:
 1. Fork the repository
-2. Clone your fork: `git clone <your-fork-url>`
-3. Make changes: `cd ssh_manager && npm start`
-4. Test your changes
-5. Submit a pull request
+2. Create a feature branch (`git checkout -b feature/new-feature`)
+3. Commit your changes (`git commit -am 'Add new feature'`)
+4. Push to the branch (`git push origin feature/new-feature`)
+5. Open a Pull Request
+
+## Roadmap
+
+### v1.0 (Current)
+- [x] Basic GUI with tree view
+- [x] Add/Edit/Delete connections
+- [x] Nested folder organization
+- [x] Port forwards and jump hosts
+- [x] Terminal auto-detection
+- [x] Search/filter
+- [x] Color tagging
+
+### v1.1 (Planned)
+- [ ] Import existing SSH config connections
+- [ ] Export connections to file
+- [ ] Connection templates
+- [ ] Dark mode support
+- [ ] Connection usage statistics
+
+### v2.0 (Future)
+- [ ] macOS support
+- [ ] Windows support (with WSL)
+- [ ] SSH key generation interface
+- [ ] Multi-connection actions
+- [ ] Built-in connection testing
 
 ## License
 
-MIT License - see LICENSE file for details.
+MIT License - see LICENSE file for details
 
-## Security
+## Credits
 
-SSH Manager is a defensive security tool focused on:
-- Secure storage of SSH configurations
-- No logging of sensitive data
-- Proper file permission handling
-- Input validation and sanitization
-- Safe backup and restore operations
+Inspired by SecureCRT's session management workflow.
+
+Built with:
+- [PySide6](https://doc.qt.io/qtforpython/) - Qt for Python
+- Native SSH client (OpenSSH)
 
 ---
 
-**Version**: 0.1.2  
-**Repository**: https://github.com/isriam/ssh_manager  
-**Dependencies**: Minimal Electron setup (~124 packages)
+**Questions or issues?** Open an issue on GitHub or submit a pull request.
