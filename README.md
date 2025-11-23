@@ -7,7 +7,7 @@ A clean, focused SSH session manager inspired by SecureCRT. Manage your SSH conn
 
 ## Features
 
-- 🖥️ **Simple GUI** - Clean PySide6 interface for managing SSH connections
+- 🖥️ **Simple GUI** - Clean Tkinter interface for managing SSH connections
 - 📁 **Nested Folders** - Organize connections in hierarchical folders (work/clients/acme/production)
 - 🚀 **One-Click Connect** - Double-click to launch SSH in your terminal
 - 🔧 **SSH Features** - Port forwards, jump hosts, custom keys
@@ -35,7 +35,7 @@ cd ssh_manager
 python3 -m venv venv
 source venv/bin/activate
 
-# Install dependencies (just PySide6)
+# Install dependencies (just paramiko)
 pip install -r requirements.txt
 
 # Run the application

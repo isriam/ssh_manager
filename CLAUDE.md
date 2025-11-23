@@ -107,43 +107,42 @@ ssh_manager/
 
 #### Backend Components
 
-**`ssh-manager.js`** (Main SSH Management Class):
+**`ssh_manager.py`** (Main SSH Management Class):
 - Connection CRUD operations
 - SSH config file management
 - Template processing and variable substitution
 - Backup/restore functionality
-- Connection testing via node-ssh
+- Connection testing via paramiko
 - Integration state management
 
-**`file-utils.js`** (File System Operations):
+**`file_utils.py`** (File System Operations):
 - Directory structure creation (~/.ssh_manager/)
-- SSH config file parsing with ssh-config library
+- SSH config file parsing
 - Backup creation and restoration
 - File permission management
 
-**`templates.js`** (Template System):
+**`templates.py`** (Template System):
 - Pre-built SSH configuration templates
 - Variable substitution for dynamic configs
 - Template categories: Basic Server, AWS EC2, Jump Host, Developer
 
 #### Frontend Components
 
-**`main.js`** (Electron Main Process):
-- Window management and state persistence
-- IPC handler registration for all SSH operations
-- Modal window creation for add/edit operations
-- Application lifecycle management
+**`main.py`** (GUI Main Window):
+- Window management and layout
+- Menu creation and event handling
+- Connection tree view integration
+- Dialog window management
 
-**`app.js`** (Frontend Logic):
-- DOM manipulation and event handling
-- IPC communication with backend
-- Connection tree view management
-- Form validation and submission
+**`connection_tree.py`** (Connection Tree View):
+- Tree widget for displaying connections by groups
+- Connection selection and display
+- Context menu handling
+- Tree refresh and update logic
 
-**`preload.js`** (Security Bridge):
-- Secure IPC API exposure to renderer
-- Context isolation boundary
-- Backend method proxying
+**`dialogs/`** (Dialog Windows):
+- `add_connection.py`: Add new connection dialog
+- `edit_connection.py`: Edit existing connection dialog
 
 ## File Organization
 
@@ -170,17 +169,16 @@ SSH Manager creates organized structure:
 ```python
 # requirements.txt
 paramiko>=3.0.0    # SSH connection and testing
-sshtunnel>=0.4.0   # SSH tunneling support
 
 # Built-in Python modules used:
 # - tkinter (GUI framework)
-# - pathlib, os (file operations)  
+# - pathlib, os (file operations)
 # - subprocess (terminal launching)
 # - argparse (CLI interface)
 # - zipfile (backup functionality)
 ```
 
-**Total packages**: 2 external + Python standard library
+**Total packages**: 1 external + Python standard library
 **Installation time**: ~10 seconds  
 **No build step required**: Pure Python execution
 

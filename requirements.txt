@@ -1,4 +1,5 @@
 # SSH Manager Dependencies
-# Simple SSH session manager with PySide6 GUI
+# Simple SSH session manager with Tkinter GUI
 
-PySide6>=6.5.0
+# SSH connection and testing
+paramiko>=3.0.0
