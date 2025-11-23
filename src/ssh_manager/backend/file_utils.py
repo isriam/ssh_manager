@@ -168,17 +168,24 @@ class FileUtils:
         
     def update_main_ssh_config(self):
         """Update the main SSH config to include SSH Manager configs."""
-        include_line = f"Include {self.ssh_manager_dir}/config/*/*.conf\n"
-        
+        # Use recursive glob pattern to match all nested .conf files
+        # Note: SSH config supports wildcards including ** for recursive matching in OpenSSH 7.3+
+        include_line = f"Include {self.ssh_manager_dir}/config/**/*.conf\n"
+
         # Read existing config
         existing_config = ""
         if self.ssh_config_path.exists():
             existing_config = self.ssh_config_path.read_text(encoding='utf-8')
-            
-        # Check if already included
+
+        # Check if already included (look for any SSH Manager include)
         if str(self.ssh_manager_dir) in existing_config:
+            # Update the include pattern if it's the old single-level pattern
+            old_pattern = f"Include {self.ssh_manager_dir}/config/*/*.conf"
+            if old_pattern in existing_config:
+                existing_config = existing_config.replace(old_pattern, include_line.strip())
+                self.ssh_config_path.write_text(existing_config, encoding='utf-8')
             return  # Already included
-            
+
         # Add include line at the beginning
         new_config = include_line + "\n" + existing_config
         self.ssh_config_path.write_text(new_config, encoding='utf-8')

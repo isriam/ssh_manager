@@ -48,7 +48,7 @@ class SSHManager:
         # Extract options with defaults
         name = options.get('name')
         host = options.get('host')
-        user = options.get('user', os.getenv('USER', ''))
+        user = options.get('user', '').strip() or os.getenv('USER', '')  # Default to current user if empty
         port = options.get('port', '22')
         group = options.get('group', 'personal')
         template = options.get('template', 'basic-server')
@@ -109,8 +109,10 @@ class SSHManager:
         
         # Generate config content from template
         config_content = self.templates.create_from_template(template, template_variables)
-        
-        # Add icon metadata as comment
+
+        # Add icon metadata as comment (with consistent formatting)
+        # Ensure icon is stripped of whitespace and properly formatted
+        icon = icon.strip() if icon else '💻'
         config_with_icon = f"# SSH Manager Icon: {icon}\n{config_content}"
         
         # Write config file
@@ -125,25 +127,31 @@ class SSHManager:
         """List all connections, optionally filtered by group."""
         connections = []
         groups = [group_filter] if group_filter else self.file_utils.list_groups()
-        
+
         for group in groups:
             connection_names = self.file_utils.list_connections_in_group(group)
             for name in connection_names:
                 config_content = self.file_utils.read_config_file(group, name)
-                
+
                 # Extract icon from comment if present
-                icon = '💻'  # default
-                if config_content and config_content.startswith('# SSH Manager Icon:'):
-                    first_line = config_content.split('\n')[0]
-                    icon = first_line.split('# SSH Manager Icon: ')[1]
-                    
+                icon = '💻'  # default icon
+                if config_content:
+                    lines = config_content.split('\n')
+                    if lines and lines[0].strip().startswith('# SSH Manager Icon:'):
+                        try:
+                            icon_part = lines[0].strip().split('# SSH Manager Icon:', 1)
+                            if len(icon_part) > 1:
+                                icon = icon_part[1].strip()
+                        except (IndexError, AttributeError):
+                            pass  # Use default icon if parsing fails
+
                 connections.append({
                     'name': name,
                     'group': group,
                     'icon': icon,
                     'config': config_content
                 })
-                
+
         return connections
         
     def remove_connection(self, name: str, group: str):
